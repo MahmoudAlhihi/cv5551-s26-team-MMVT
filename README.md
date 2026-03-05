@@ -8,7 +8,7 @@
 | Mahmoud Alhihi | Mahmoudalhihi7@gmail.com |
 | Viktor Radev | viktorpradev@gmail.com  |
 | Matthew Giambrone | mattbr0n3@gmail.com |
-| Tarun | TBD 
+| Tarun | sehga060@umn.edu |  
 
 ## Roles and Responsibilities
 
