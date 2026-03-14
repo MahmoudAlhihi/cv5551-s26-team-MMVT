@@ -1,7 +1,7 @@
 # cv5551-s26-MMVT
 
 ## project Title
-- TBD
+- EchoFind
 ## Team Members
 | Name | Email 
 |-----|-----|
