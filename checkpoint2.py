@@ -9,6 +9,8 @@ from checkpoint1 import grasp_cube, get_transform_cube, GRIPPER_LENGTH
 # TODO
 BASKET_POSE = None # Measure it using the robot's free drive mode.
 
+BASKET_APPROACH_HEIGHT = 0.05 # height(metres) to approach above the basket before releasing
+
 robot_ip = ''
 
 def place_in_basket(arm, basket_pose, vaccum_gripper=False):
@@ -18,18 +20,41 @@ def place_in_basket(arm, basket_pose, vaccum_gripper=False):
     Parameters
     ----------
     arm : xarm.wrapper.XArmAPI
-        The initialized XArm API object controlling the Lite6 robot.
+        The initialized XArm API object contring the Lite6 robot.
     basket_pose : list or numpy.ndarray
         A 6-element array representing the target drop-off pose in the robot 
-        base frame formatted as [x, y, z, roll, pitch, yaw]. 
+        base frame formatted as [x, y, z, r, p, y]. 
         Translational units (x, y, z) are in meters, and rotational units 
-        (roll, pitch, yaw) are in radians.
+        (r, p, y) are in radians.
     vaccum_gripper : bool, optional
         If True, uses the vacuum gripper logic instead of the standard Lite6 
         gripper. Defaults to False.
     """
     # TODO
-    pass
+    # convert metres to mm for xArm API
+    x = basket_pose[0] * 1000
+    y = basket_pose[1] * 1000
+    z = basket_pose[2] * 1000
+    r = basket_pose[3]
+    p = basket_pose[4]
+    yaw = basket_pose[5]
+ 
+    # approach from a safe height above the basket so we clear the cup lip
+    z_offset = z + BASKET_APPROACH_HEIGHT * 1000
+    arm.set_position(x, y, z_offset, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.3)
+ 
+    # release objecty
+    if vaccum_gripper:
+        arm.set_vacuum_gripper(False, wait=True)
+    else:
+        arm.open_lite6_gripper()
+        time.sleep(0.5)
+        arm.stop_lite6_gripper()
+ 
+    # Retreat back up so we don't knock the cupg
+    arm.set_position(x, y, z_offset + 30, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.3)
 
 def main():
 
@@ -53,6 +78,18 @@ def main():
 
         t_cam_cube = None
         #TODO
+        # capture image and compute camera to robot transform
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        if t_cam_robot is None:
+            print('Failed to compute cam-robot transform')
+            return
+
+        # detect cube pose
+        result = get_transform_cube(cv_image, camera_intrinsic, t_cam_robot)
+        if result is None:
+            print('Cube not found')
+            return
+        t_robot_cube, t_cam_cube = result
         
         # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
@@ -65,6 +102,9 @@ def main():
             cv2.destroyAllWindows()
 
             # TODO
+            # pick up the cube, then drop it in the basket
+            grasp_cube(arm, t_robot_cube)
+            place_in_basket(arm, BASKET_POSE)
     
     finally:
         # Close Lite6 Robot
