@@ -10,7 +10,7 @@ from checkpoint0 import get_transform_camera_robot
 GRIPPER_LENGTH = 0.067 * 1000
 CUBE_TAG_FAMILY = 'tag36h11'
 CUBE_TAG_ID = 4
-CUBE_TAG_SIZE = 0.0207
+CUBE_TAG_SIZE = 0.0205
 
 robot_ip = '192.168.1.158'
 
@@ -50,17 +50,17 @@ def grasp_cube(arm, cube_pose):
     time.sleep(2)
  
     # move to grasp height
-    arm.set_position(x, y, -z + 40, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.3)
+    arm.set_position(x, y, -z + 37, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.5)
  
     # close gripper
     arm.close_lite6_gripper()
-    time.sleep(0.8)
+    time.sleep(1)
     arm.stop_lite6_gripper()
  
     # lift back to safe height
-    arm.set_position(x, y, z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.3)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.5)
 
 def place_cube(arm, cube_pose):
     """
@@ -85,12 +85,12 @@ def place_cube(arm, cube_pose):
     r, p, yaw = rot.as_euler('xyz', degrees=False)
  
     # move to pre-place height above target
-    arm.set_position(x, y, z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.3)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.5)
  
     # descend to place height
-    arm.set_position(x, y, z, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.3)
+    arm.set_position(x, y, -z + 37, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.5)
  
     # open gripper to release
     arm.open_lite6_gripper()
@@ -98,8 +98,8 @@ def place_cube(arm, cube_pose):
     arm.stop_lite6_gripper()
  
     # lift back to safe height
-    arm.set_position(x, y, z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.3)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.5)
 
 def get_transform_cube(observation, camera_intrinsic, camera_pose):
     """
@@ -227,3 +227,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
