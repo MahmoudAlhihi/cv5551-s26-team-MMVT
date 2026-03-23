@@ -31,13 +31,13 @@ def place_in_basket(arm, basket_pose, vaccum_gripper=False):
         gripper. Defaults to False.
     """
     # TODO
-    # convert metres to mm for xArm API
-    x = basket_pose[0] * 1000
-    y = basket_pose[1] * 1000
-    z = basket_pose[2] * 1000
-    r = basket_pose[3] * (2*math.pi)/180
-    p = basket_pose[4] * (2*math.pi)/180
-    yaw = basket_pose[5] * (2*math.pi)/180
+    # convert metres to radians for xArm API
+    x = basket_pose[0]
+    y = basket_pose[1]
+    z = basket_pose[2]
+    r = basket_pose[3] * (math.pi)/180
+    p = basket_pose[4] * (math.pi)/180
+    yaw = basket_pose[5] * (math.pi)/180
  
     # approach from a safe height above the basket so we clear the cup lip
     z_offset = z + BASKET_APPROACH_HEIGHT * 1000
@@ -117,4 +117,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
