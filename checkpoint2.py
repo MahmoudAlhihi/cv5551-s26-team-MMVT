@@ -8,6 +8,7 @@ from checkpoint1 import grasp_cube, get_transform_cube, GRIPPER_LENGTH
 
 # TODO
 BASKET_POSE = [228.1, -303.6, 23.2, 178.2, -3.8, 4.1] # Measure it using the robot's free drive mode.
+CUP_CLEARANCE_HEIGHT = 150
 
 robot_ip = '192.168.1.158'
 
@@ -28,22 +29,23 @@ def place_in_basket(arm, basket_pose, vaccum_gripper=False):
         If True, uses the vacuum gripper logic instead of the standard Lite6 
         gripper. Defaults to False.
     """
-    x = basket_pose[0]
-    y = basket_pose[1]
-    z = basket_pose[2]
-    roll = basket_pose[3]
-    pitch = basket_pose[4]
-    yaw = basket_pose[5]
-
-    arm.set_position(x, y, z, roll, pitch, yaw, wait=True)
+    # TODO
+    x = basket_pose[0] 
+    y = basket_pose[1] 
+    z = basket_pose[2] 
+    r = numpy.radians(basket_pose[3])
+    p = numpy.radians(basket_pose[4])
+    yaw = numpy.radians(basket_pose[5])
+    arm.set_position(x,y,z + CUP_CLEARANCE_HEIGHT, r,p,yaw, is_radian = True, wait = True)
     time.sleep(0.5)
+    arm.set_position(x,y,z, r,p,yaw, is_radian = True, wait = True)
+    time.sleep(0.5)
+    arm.open_lite6_gripper()
+    time.sleep(0.5)
+    arm.stop_lite6_gripper()
+    arm.set_position(x,y,z + CUP_CLEARANCE_HEIGHT, r,p,yaw, is_radian = True, wait = True)
 
-    if vaccum_gripper:
-        arm.set_suction_cup(False, wait=True)
-    else:
-        arm.open_lite6_gripper()
-        time.sleep(0.5)
-        arm.stop_lite6_gripper()
+
 
 def main():
 
@@ -66,7 +68,13 @@ def main():
         cv_image = zed.image
 
         t_cam_cube = None
-        #TODO
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        if t_cam_robot is None:
+            return
+        cube_transforms = get_transform_cube(cv_image, camera_intrinsic, t_cam_robot)
+        if cube_transforms is None:
+            return
+        t_robot_cube, t_cam_cube = cube_transforms
         
         # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
@@ -78,7 +86,8 @@ def main():
         if key == ord('k'):
             cv2.destroyAllWindows()
 
-            # TODO
+            grasp_cube(arm, t_robot_cube)
+            place_in_basket(arm, BASKET_POSE)
     
     finally:
         # Close Lite6 Robot
