@@ -1,17 +1,17 @@
 import cv2, numpy, time
 from xarm.wrapper import XArmAPI
-
+import math
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, get_transform_cube, GRIPPER_LENGTH
 
 # TODO
-BASKET_POSE = None # Measure it using the robot's free drive mode.
+BASKET_POSE = [228.1, -303.6, 23.2, 178.2, -3.8, 4.1 ] # Measure it using the robot's free drive mode.
 
 BASKET_APPROACH_HEIGHT = 0.05 # height(metres) to approach above the basket before releasing
 
-robot_ip = ''
+robot_ip = '192.168.1.158'
 
 def place_in_basket(arm, basket_pose, vaccum_gripper=False):
     """
@@ -35,9 +35,9 @@ def place_in_basket(arm, basket_pose, vaccum_gripper=False):
     x = basket_pose[0] * 1000
     y = basket_pose[1] * 1000
     z = basket_pose[2] * 1000
-    r = basket_pose[3]
-    p = basket_pose[4]
-    yaw = basket_pose[5]
+    r = basket_pose[3] * (2*math.pi)/180
+    p = basket_pose[4] * (2*math.pi)/180
+    yaw = basket_pose[5] * (2*math.pi)/180
  
     # approach from a safe height above the basket so we clear the cup lip
     z_offset = z + BASKET_APPROACH_HEIGHT * 1000
@@ -117,3 +117,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

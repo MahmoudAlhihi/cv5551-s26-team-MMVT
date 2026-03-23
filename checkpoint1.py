@@ -12,7 +12,7 @@ CUBE_TAG_FAMILY = 'tag36h11'
 CUBE_TAG_ID = 4
 CUBE_TAG_SIZE = 0.0207
 
-robot_ip = ''
+robot_ip = '192.168.1.158'
 
 # safe height (mm) above the cube to move to before coming down to grasp/place
 PRE_GRASP_HEIGHT = 80
@@ -46,11 +46,11 @@ def grasp_cube(arm, cube_pose):
     arm.stop_lite6_gripper()
  
     # move to pre grasp height above the cube
-    arm.set_position(x, y, z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.3)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(2)
  
     # move to grasp height
-    arm.set_position(x, y, z, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z + 40, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.3)
  
     # close gripper
