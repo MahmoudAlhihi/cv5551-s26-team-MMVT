@@ -146,7 +146,7 @@ class CubePoseDetector:
                         match_count += 1
                         break
 
-            match = (match_count / len(samples)) >= 0.3
+            match = (match_count / len(samples)) >= 0.01
 
             print(f"{color}: {match_count}/{len(samples)}")
 
