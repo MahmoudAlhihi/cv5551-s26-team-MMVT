@@ -32,9 +32,8 @@ class CubePoseDetector:
         self.detector = Detector(families=CUBE_TAG_FAMILY)
         self.camera_pose = None  # set before calling get_transforms
         self.color_hsv_ranges = {
-            'red':   [(numpy.array([0,100,60]), numpy.array([10,255,255])),
-        (numpy.array([170,100,60]), numpy.array([180,255,255]))],
-            'green': [(numpy.array([45,60,60]), numpy.array([75,255,255]))],
+            'red':   [(numpy.array([0, 80, 50]), numpy.array([15, 255, 255])), (numpy.array([165, 80, 50]), numpy.array([180, 255, 255]))],
+            'green': [(numpy.array([35, 50, 50]), numpy.array([80, 255, 255]))],
             'blue':  [(numpy.array([90,80,60]), numpy.array([130,255,255]))],
         }
 
@@ -69,7 +68,7 @@ class CubePoseDetector:
             return None
  
         # prep imgs
-        if observation.shape[2] == 4:
+        if len(observation.shape) == 3 and observation.shape[2] == 4:
             bgr  = cv2.cvtColor(observation, cv2.COLOR_BGRA2BGR)
             gray = cv2.cvtColor(observation, cv2.COLOR_BGRA2GRAY)
         else:
@@ -77,7 +76,6 @@ class CubePoseDetector:
             gray = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
  
         hsv    = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-        print(hsv)
         h, w   = gray.shape
  
         # detect AprilTags with pose est
@@ -122,26 +120,35 @@ class CubePoseDetector:
             samples = []
             for i in range(4):
                 mid = (corners[i] + corners[(i + 1) % 4]) / 2.0
-                # push midpoint outward from tag centre by 1.5x tag half-width
-                direction  = mid - centre
-                pt  = centre + 1.5 * direction
-                px = int(numpy.clip(pt[0], 0, w - 1))
-                py = int(numpy.clip(pt[1], 0, h - 1))
+                direction = mid - centre
+                for scale in [1.2, 1.5, 1.8]:
+                    pt = centre + scale * direction
+                    px = int(numpy.clip(pt[0], 0, w - 1))
+                    py = int(numpy.clip(pt[1], 0, h - 1))
+                    samples.append(hsv[py, px])
 
-                samples.append(hsv[py, px])
+            for corner in corners:
+                direction = corner - centre
+                for scale in [1.2, 1.5, 1.8]:
+                    pt = centre + scale * direction
+                    px = int(numpy.clip(pt[0], 0, w - 1))
+                    py = int(numpy.clip(pt[1], 0, h - 1))
+                    samples.append(hsv[py, px])
  
             if len(samples) == 0:
                 continue
-
-            # use median hsv for robustness to noise
-            median_hsv = numpy.median(numpy.array(samples), axis=0)
  
             # colour matching
-            match = False
-            for lo, hi in self.color_hsv_ranges[color]:
-                if numpy.all(median_hsv >= lo) and numpy.all(median_hsv <= hi):
-                    match = True
-                    break
+            match_count = 0
+            for sample in samples:
+                for lo, hi in self.color_hsv_ranges[color]:
+                    if numpy.all(sample >= lo) and numpy.all(sample <= hi):
+                        match_count += 1
+                        break
+
+            match = (match_count / len(samples)) >= 0.3
+
+            print(f"{color}: {match_count}/{len(samples)}")
 
             if not match:
                 continue
@@ -153,6 +160,8 @@ class CubePoseDetector:
                 best_dist = dist
                 best_tag = tag
 
+        if best_tag is not None:
+            print(f"Selected {color} cube at distance {best_dist:.3f}")
         if best_tag is None:
             print(f'No matching "{cube_prompt}" found.')
             return None
