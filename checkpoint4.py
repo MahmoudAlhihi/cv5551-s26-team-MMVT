@@ -9,9 +9,9 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 # TODO
-STACK_HEIGHT = None   # Determine a suitable height yourself (0.025)
+STACK_HEIGHT = 0.025   # Determine a suitable height yourself (0.025)
 
-robot_ip = '192.168.1.158'
+robot_ip = '192.168.1.182'
 
 def main():
 
@@ -47,8 +47,8 @@ def main():
         cube_pose_detector.camera_pose = t_cam_robot
 
         # finding the red (to pick) and green (to stack) cubes
-        redr = cube_pose_detector.get_transforms(cv_image, 'red cube')
-        greenr = cube_pose_detector.get_transforms(cv_image, 'green cube')
+        redr = cube_pose_detector.get_transforms(cv_image, 'red')
+        greenr = cube_pose_detector.get_transforms(cv_image, 'green')
 
         if redr is None or greenr is None:
             print("Could not locate both cubes for stacking")

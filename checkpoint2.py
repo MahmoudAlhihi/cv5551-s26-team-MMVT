@@ -7,11 +7,11 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, get_transform_cube, GRIPPER_LENGTH
 
 # TODO
-BASKET_POSE = [228.1, -303.6, 23.2, 178.2, -3.8, 4.1 ] # Measure it using the robot's free drive mode.
+BASKET_POSE = [229.4, -296.4, 23.2, 178.2, -3.8, 4.1 ] # Measure it using the robot's free drive mode.
 
-BASKET_APPROACH_HEIGHT = 0.05 # height(metres) to approach above the basket before releasing
+BASKET_APPROACH_HEIGHT = 0.12 # height(metres) to approach above the basket before releasing
 
-robot_ip = '192.168.1.158'
+robot_ip = '192.168.1.182'
 
 def place_in_basket(arm, basket_pose, vaccum_gripper=False):
     """
