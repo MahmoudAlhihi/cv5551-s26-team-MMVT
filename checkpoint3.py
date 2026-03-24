@@ -1,6 +1,8 @@
 import cv2, numpy, time
 from pupil_apriltags import Detector
 from xarm.wrapper import XArmAPI
+from lang_sam import LangSAM
+from PIL import Image
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
@@ -8,7 +10,7 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH, CUBE_TAG_FAMILY, CUBE_TAG_ID, CUBE_TAG_SIZE
 
 cube_prompt = 'blue cube'
-robot_ip = ''
+robot_ip = '192.168.1.158'
 
 class CubePoseDetector:
     """
@@ -28,7 +30,9 @@ class CubePoseDetector:
             The 3x3 intrinsic camera matrix.
         """
         self.camera_intrinsic = camera_intrinsic
-        # TODO
+        self.model = LangSAM()
+        self.detector = Detector(families=CUBE_TAG_FAMILY)
+        
 
     def get_transforms(self, observation, cube_prompt):
         """
@@ -49,8 +53,54 @@ class CubePoseDetector:
             are 4x4 transformation matrices with translations in meters. 
             If no matching object or tag is found, returns None.
         """
-        # TODO
-        pass
+        if len(observation.shape) > 2:
+            if observation.shape[2] == 4:
+                gray = cv2.cvtColor(observation, cv2.COLOR_BGRA2GRAY)
+            else:
+                gray = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = observation
+
+        fx = self.camera_intrinsic[0,0]
+        fy = self.camera_intrinsic[1,1]
+        cx = self.camera_intrinsic[0,2]
+        cy = self.camera_intrinsic[1,2]
+        
+        if len (observation.shape) > 2:
+            if observation.shape[2] == 4:
+                new_image = cv2.cvtColor(observation, cv2.COLOR_BGRA2RGB)
+            else:
+                new_image = cv2.cvtColor(observation, cv2.COLOR_BGR2RGB)
+        
+        new_observation = Image.fromarray(new_image)
+
+        tags = self.detector.detect(gray, estimate_tag_pose=True, camera_params = (fx,fy,cx,cy), tag_size=CUBE_TAG_SIZE)
+        masks, boxes, phrases, logits = self.model.predict(new_observation, cube_prompt)
+
+        #check if model found anything 
+        cube_tag = None
+        if len(masks) == 0:
+            return None
+        for tag in tags:
+            center_x = tag.center[0] # (column)
+            center_y = tag.center[1] # (row)
+            if masks[0][int(center_y)][int(center_x)]:
+                cube_tag = tag
+                break
+        if cube_tag == None:
+                return None
+        
+        t_cam_cube = numpy.eye(4)
+        t_cam_cube[:3, :3] = cube_tag.pose_R
+        t_cam_cube[:3, 3] = cube_tag.pose_t.flatten()
+
+        t_cam_robot = get_transform_camera_robot(observation, self.camera_intrinsic)
+        if t_cam_robot is None:
+            return None
+
+        t_robot_cube = numpy.linalg.inv(t_cam_robot) @ t_cam_cube
+        return (t_robot_cube, t_cam_cube)
+        
 
 def main():
 
@@ -76,7 +126,11 @@ def main():
         cv_image = zed.image
 
         t_cam_cube = None
-        # TODO
+        
+        result = cube_pose_detector.get_transforms(cv_image, cube_prompt)
+        if result is None:
+            return 
+        t_robot_cube, t_cam_cube = result
 
         # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
@@ -88,7 +142,8 @@ def main():
         if key == ord('k'):
             cv2.destroyAllWindows()
 
-            # TODO
+            grasp_cube(arm, t_robot_cube)
+            place_cube(arm, t_robot_cube)
             
     finally:
         # Close Lite6 Robot
