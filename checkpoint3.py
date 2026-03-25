@@ -32,6 +32,7 @@ class CubePoseDetector:
         self.camera_intrinsic = camera_intrinsic
         self.model = LangSAM()
         self.detector = Detector(families=CUBE_TAG_FAMILY)
+        self.camera_pose = None
         
 
     def get_transforms(self, observation, cube_prompt):
@@ -78,27 +79,27 @@ class CubePoseDetector:
         masks, boxes, phrases, logits = self.model.predict(new_observation, cube_prompt)
 
         #check if model found anything 
-        cube_tag = None
+        best_tag = None
+        best_dist = float('inf')
         if len(masks) == 0:
             return None
         for tag in tags:
             center_x = tag.center[0] # (column)
             center_y = tag.center[1] # (row)
             if masks[0][int(center_y)][int(center_x)]:
-                cube_tag = tag
-                break
-        if cube_tag == None:
+                dist = numpy.linalg.norm(tag.pose_t)
+                if dist < best_dist:
+                    best_dist = dist
+                    best_tag = tag
+                
+        if best_tag is None:
                 return None
         
         t_cam_cube = numpy.eye(4)
-        t_cam_cube[:3, :3] = cube_tag.pose_R
-        t_cam_cube[:3, 3] = cube_tag.pose_t.flatten()
+        t_cam_cube[:3, :3] = best_tag.pose_R
+        t_cam_cube[:3, 3] = best_tag.pose_t.flatten()
 
-        t_cam_robot = get_transform_camera_robot(observation, self.camera_intrinsic)
-        if t_cam_robot is None:
-            return None
-
-        t_robot_cube = numpy.linalg.inv(t_cam_robot) @ t_cam_cube
+        t_robot_cube = numpy.linalg.inv(self.camera_pose) @ t_cam_cube
         return (t_robot_cube, t_cam_cube)
         
 
@@ -126,7 +127,12 @@ def main():
         cv_image = zed.image
 
         t_cam_cube = None
+
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        if t_cam_robot is None:
+            return
         
+        cube_pose_detector.camera_pose = t_cam_robot
         result = cube_pose_detector.get_transforms(cv_image, cube_prompt)
         if result is None:
             return 
