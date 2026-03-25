@@ -8,7 +8,7 @@ from checkpoint1 import grasp_cube, get_transform_cube, GRIPPER_LENGTH
 
 # TODO
 BASKET_POSE = [228.1, -303.6, 23.2, 178.2, -3.8, 4.1] # Measure it using the robot's free drive mode.
-CUP_CLEARANCE_HEIGHT = 150
+CUP_CLEARANCE_HEIGHT = 120
 
 robot_ip = '192.168.1.158'
 
@@ -38,12 +38,10 @@ def place_in_basket(arm, basket_pose, vaccum_gripper=False):
     yaw = numpy.radians(basket_pose[5])
     arm.set_position(x,y,z + CUP_CLEARANCE_HEIGHT, r,p,yaw, is_radian = True, wait = True)
     time.sleep(0.5)
-    arm.set_position(x,y,z, r,p,yaw, is_radian = True, wait = True)
-    time.sleep(0.5)
     arm.open_lite6_gripper()
     time.sleep(0.5)
     arm.stop_lite6_gripper()
-    arm.set_position(x,y,z + CUP_CLEARANCE_HEIGHT, r,p,yaw, is_radian = True, wait = True)
+    arm.set_position(x,y,z + CUP_CLEARANCE_HEIGHT + 30, r,p,yaw, is_radian = True, wait = True)
 
 
 
