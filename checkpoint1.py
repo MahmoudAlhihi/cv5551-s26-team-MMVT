@@ -10,7 +10,7 @@ from checkpoint0 import get_transform_camera_robot
 GRIPPER_LENGTH = 0.067 * 1000
 CUBE_TAG_FAMILY = 'tag36h11'
 CUBE_TAG_ID = 4
-CUBE_TAG_SIZE = 0.0207
+CUBE_TAG_SIZE = 0.0206
 
 robot_ip = '192.168.1.158'
 PRE_GRASP_HEIGHT = 80
@@ -38,14 +38,16 @@ def grasp_cube(arm, cube_pose):
     arm.open_lite6_gripper()
     time.sleep(0.5)
     arm.stop_lite6_gripper()
-    arm.set_position(x,y, z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian = True, wait = True)
+    arm.set_position(x,y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian = True, wait = True)
     time.sleep(0.5)
-    arm.set_position(x,y,z,r,p,yaw,is_radian = True, wait = True)
+    arm.set_position(x,y,-z,r,p,yaw,is_radian = True, wait = True)
     time.sleep(0.5)
+
     arm.close_lite6_gripper()
     time.sleep(0.5)
     arm.stop_lite6_gripper()
-    arm.set_position(x,y,z+PRE_GRASP_HEIGHT, r, p, yaw, is_radian = True, wait = True)
+    arm.set_position(x,y,-z+PRE_GRASP_HEIGHT, r, p, yaw, is_radian = True, wait = True)
+    time.sleep(0.5)
 
     pass
 
@@ -69,15 +71,16 @@ def place_cube(arm, cube_pose):
     rot_pose = cube_pose[:3, :3]
     rot_obj = Rotation.from_matrix(rot_pose)
     r , p ,yaw = rot_obj.as_euler('xyz', degrees=False)
-    arm.set_position(x,y,z + PRE_GRASP_HEIGHT, r,p,yaw, is_radian = True, wait = True)
+    arm.set_position(x,y,-z + PRE_GRASP_HEIGHT, r,p,yaw, is_radian = True, wait = True)
     time.sleep(0.5)
-    arm.set_position(x,y,z, r,p,yaw, is_radian = True, wait = True)
+    arm.set_position(x,y,-z + 37, r,p,yaw, is_radian = True, wait = True)
     time.sleep(0.5)
+
     arm.open_lite6_gripper()
     time.sleep(0.5)
     arm.stop_lite6_gripper()
-    arm.set_position(x,y,z + PRE_GRASP_HEIGHT, r,p,yaw, is_radian = True, wait = True)
-
+    arm.set_position(x,y,-z + PRE_GRASP_HEIGHT, r,p,yaw, is_radian = True, wait = True)
+    time.sleep(0.5)
 
     pass
 
