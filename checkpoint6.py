@@ -10,7 +10,7 @@ from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 CUBE_SIZE = 0.025
 
-robot_ip = ''
+robot_ip = '192.168.1.182'
 
 def get_transform_cube(observation, camera_intrinsic, camera_pose):
     """
@@ -41,6 +41,47 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     image, point_cloud = observation
 
     # TODO
+    # semantic segmentation (red Mask)
+    # red spans the 0 and 180 boundaries in hsv
+    if image.shape[2] == 4:
+        bgr = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    else:
+        bgr = image
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    m1 = cv2.inRange(hsv, numpy.array([0, 80, 80]), numpy.array([10, 255, 255]))
+    m2 = cv2.inRange(hsv, numpy.array([160, 80, 80]), numpy.array([180, 255, 255]))
+    mask = cv2.bitwise_or(m1, m2)
+
+    # filtering NaNs and extracting points
+    # point_cloud is (H, W, 4) -> [x, y, z, color]
+    raw_points = point_cloud[mask > 0][:, :3]
+    
+    # removing invalid depth readings (NaN or Inf)
+    cpoints = raw_points[numpy.all(numpy.isfinite(raw_points), axis=1)]
+
+    if len(cpoints) < 50:
+        print("Not enough valid points detected")
+        return None
+
+    # using Open3D for Oriented Bounding Box
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(cpoints)
+    
+    # get center and rotation from the geometry
+    obb = pcd.get_oriented_bounding_box()
+    centroid = obb.center
+    rotation_matrix = obb.R
+
+    # constructing cam to cube transf
+    t_cam_cube = numpy.eye(4)
+    t_cam_cube[:3, :3] = rotation_matrix
+    t_cam_cube[:3, 3] = centroid
+
+    # constructing robot to cube transf
+    # camera_pose is t_robot_cam 
+    t_robot_cube = numpy.linalg.inv(camera_pose) @ t_cam_cube
+
+    return t_robot_cube, t_cam_cube
 
 def main():
 
@@ -65,6 +106,19 @@ def main():
 
         t_cam_cube = None
         # TODO
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        if t_cam_robot is None:
+            print("Failed to detect registration tags")
+            return
+
+        # detecting cube using pure vis
+        result = get_transform_cube([cv_image, point_cloud], camera_intrinsic, t_cam_robot)
+        
+        if result is None:
+            print("Cube detection failed")
+            return
+            
+        t_robot_cube, t_cam_cube = result
         
         # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
@@ -77,6 +131,13 @@ def main():
             cv2.destroyAllWindows()
 
             # TODO
+            # grasp
+            grasp_cube(arm, t_robot_cube)
+            time.sleep(0.5)
+            # place
+            place_cube(arm, t_robot_cube)
+            # return home
+            arm.move_gohome(wait=True)
     
     finally:
         # Close Lite6 Robot
