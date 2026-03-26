@@ -10,7 +10,7 @@ from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 CUBE_SIZE = 0.025
 
-robot_ip = '192.168.1.182'
+robot_ip = '192.168.1.166'
 
 def get_transform_cube(observation, camera_intrinsic, camera_pose):
     """
@@ -50,7 +50,13 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
     m1 = cv2.inRange(hsv, numpy.array([0, 80, 80]), numpy.array([10, 255, 255]))
     m2 = cv2.inRange(hsv, numpy.array([160, 80, 80]), numpy.array([180, 255, 255]))
-    mask = cv2.bitwise_or(m1, m2)
+    mask = cv2.bitwise_or(m1,m2)
+    
+    kernel= numpy.ones((5,5), numpy.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    cv2.imshow('Red Mask', mask)
+    cv2.waitKey(0)
 
     # filtering NaNs and extracting points
     # point_cloud is (H, W, 4) -> [x, y, z, color]
@@ -62,6 +68,7 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     if len(cpoints) < 50:
         print("Not enough valid points detected")
         return None
+    print(f"Point cloud sample: {point_cloud[600, 1100, :3]}")
 
     # using Open3D for Oriented Bounding Box
     pcd = o3d.geometry.PointCloud()
@@ -69,8 +76,16 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     
     # get center and rotation from the geometry
     obb = pcd.get_oriented_bounding_box()
-    centroid = obb.center
+    centroid = numpy.mean(cpoints, axis=0)/1000.0 # mm to meters
+    
+    print(f"Centroid: {centroid}")
+    print(f"Mask pixel count: {numpy.sum(mask > 0)}")
+    print(f"Centroid (m): {centroid}")
+    print(f"Number of valid 3D points: {len(cpoints)}")
+    
     rotation_matrix = obb.R
+    if numpy.linalg.det(rotation_matrix) < 0:
+        rotation_matrix[:,2] *= -1
 
     # constructing cam to cube transf
     t_cam_cube = numpy.eye(4)
