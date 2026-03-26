@@ -83,11 +83,21 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     print(f"Centroid (m): {centroid}")
     print(f"Number of valid 3D points: {len(cpoints)}")
     
-    rotation_matrix = numpy.linalg.inv(camera_pose)[:3, :3]
+    rotation_matrix = obb.R
+
+    # extract yaw only
+    yaw = numpy.arctan2(rotation_matrix[1, 0], rotation_matrix[0, 0])
+
+    Rz = numpy.array([
+        [numpy.cos(yaw), -numpy.sin(yaw), 0],
+        [numpy.sin(yaw),  numpy.cos(yaw), 0],
+        [0,               0,              1]
+    ])
+
 
     # constructing cam to cube transf
     t_cam_cube = numpy.eye(4)
-    t_cam_cube[:3, :3] = rotation_matrix
+    t_cam_cube[:3, :3] = Rz
     t_cam_cube[:3, 3] = centroid
 
     # constructing robot to cube transf
