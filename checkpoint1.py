@@ -12,7 +12,7 @@ CUBE_TAG_FAMILY = 'tag36h11'
 CUBE_TAG_ID = 4
 CUBE_TAG_SIZE = 0.0206
 
-robot_ip = '192.168.1.182'
+robot_ip = '192.168.1.166'
 
 # safe height (mm) above the cube to move to before coming down to grasp/place
 PRE_GRASP_HEIGHT = 80

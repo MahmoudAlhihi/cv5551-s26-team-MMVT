@@ -7,8 +7,8 @@ from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH, CUBE_TAG_FAMILY, CUBE_TAG_ID, CUBE_TAG_SIZE
 
-cube_prompt = 'blue cube'
-robot_ip = '192.168.1.182'
+cube_prompt = 'red cube'
+robot_ip = '192.168.1.166'
 
 class CubePoseDetector:
     """

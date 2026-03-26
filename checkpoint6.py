@@ -76,33 +76,39 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     
     # get center and rotation from the geometry
     obb = pcd.get_oriented_bounding_box()
-    centroid = numpy.mean(cpoints, axis=0)/1000.0 # mm to meters
-    
-    print(f"Centroid: {centroid}")
-    print(f"Mask pixel count: {numpy.sum(mask > 0)}")
-    print(f"Centroid (m): {centroid}")
-    print(f"Number of valid 3D points: {len(cpoints)}")
-    
-    rotation_matrix = obb.R
+    cpoints_m = cpoints / 1000.0
 
-    # extract yaw only
-    yaw = numpy.arctan2(rotation_matrix[1, 0], rotation_matrix[0, 0])
+    T_cam_robot = camera_pose
+    T_robot_cam = numpy.linalg.inv(T_cam_robot)
 
-    Rz = numpy.array([
-        [numpy.cos(yaw), -numpy.sin(yaw), 0],
-        [numpy.sin(yaw),  numpy.cos(yaw), 0],
-        [0,               0,              1]
-    ])
+    ones = numpy.ones((len(cpoints_m), 1))
+    cpoints_robot = (T_robot_cam @ numpy.hstack([cpoints_m, ones]).T).T[:, :3]
 
+    centroid_robot = numpy.mean(cpoints_robot, axis=0)
 
-    # constructing cam to cube transf
-    t_cam_cube = numpy.eye(4)
-    t_cam_cube[:3, :3] = Rz
-    t_cam_cube[:3, 3] = centroid
+    pts_2d_robot = cpoints_robot[:, :2].astype(numpy.float32)
 
-    # constructing robot to cube transf
-    # camera_pose is t_robot_cam 
-    t_robot_cube = numpy.linalg.inv(camera_pose) @ t_cam_cube
+    # fit oriented rectangle in robot XY plane
+    rect = cv2.minAreaRect(pts_2d_robot)
+    (center_xy, (w, h), angle_deg) = rect
+
+    # cv2 angle convention is weird; convert to cube edge yaw
+    if w < h:
+        angle_deg = angle_deg + 90.0
+
+    yaw_robot = numpy.deg2rad(angle_deg)
+
+    Rz_robot = numpy.array([
+        [numpy.cos(yaw_robot), -numpy.sin(yaw_robot), 0],
+        [numpy.sin(yaw_robot),  numpy.cos(yaw_robot), 0],
+        [0,                     0,                    1]
+    ]) @ numpy.diag([1, -1, -1])
+
+    t_robot_cube = numpy.eye(4)
+    t_robot_cube[:3, :3] = Rz_robot
+    t_robot_cube[:3, 3] = centroid_robot
+
+    t_cam_cube = T_cam_robot @ t_robot_cube
 
     return t_robot_cube, t_cam_cube
 

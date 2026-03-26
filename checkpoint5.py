@@ -10,7 +10,7 @@ from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 from checkpoint4 import STACK_HEIGHT
 
 stacking_order = ['red cube', 'green cube', 'blue cube']   # From top to bottom
-robot_ip = '192.168.1.182'
+robot_ip = '192.168.1.166'
 
 def main():
 
