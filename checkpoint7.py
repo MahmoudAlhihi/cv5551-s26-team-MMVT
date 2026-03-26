@@ -9,7 +9,7 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, GRIPPER_LENGTH
 from checkpoint2 import place_in_basket, BASKET_POSE
 
-robot_ip = ''
+robot_ip = '192.168.1.182'
 
 def main():
 
@@ -34,6 +34,19 @@ def main():
 
         t_cam_cube = None
         # TODO
+        # Compute camera → robot transform
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        if t_cam_robot is None:
+            print("Failed to detect registration tags")
+            return
+
+        result = get_transform_cube([cv_image, point_cloud], camera_intrinsic, t_cam_robot)
+        if result is None:
+            print("Cube detection failed")
+            return
+
+        t_robot_cube, t_cam_cube = result
+        
         
         # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
@@ -46,6 +59,11 @@ def main():
             cv2.destroyAllWindows()
 
             # TODO
+            # pick and place into basket
+            grasp_cube(arm, t_robot_cube)
+            time.sleep(0.5)
+            place_in_basket(arm, BASKET_POSE)
+            
     
     finally:
         # Close Lite6 Robot
