@@ -2,15 +2,17 @@ from checkpoint3 import CubePoseDetector
 
 import cv2, time
 from xarm.wrapper import XArmAPI
+import numpy
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
+from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 # TODO
-STACK_HEIGHT = None   # Determine a suitable height yourself
+STACK_HEIGHT = 0.025   # Determine a suitable height yourself
 
-robot_ip = ''
+robot_ip = '192.168.1.182'
 
 def main():
 
@@ -35,7 +37,35 @@ def main():
         # Get Observation
         cv_image = zed.image
 
-        # TODO
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        if t_cam_robot is None:
+            return
+        cube_pose_detector.camera_pose = t_cam_robot
+
+        red = cube_pose_detector.get_transforms(cv_image, 'red cube')
+        if red == None:
+            return 
+        green = cube_pose_detector.get_transforms(cv_image, 'green cube')
+        if green == None:
+            return 
+        t_robot_red, t_cam_red = red
+        t_robot_green, t_cam_green = green
+
+        draw_pose_axes(cv_image, camera_intrinsic, t_cam_red)
+        draw_pose_axes(cv_image, camera_intrinsic, t_cam_green)
+        cv2.namedWindow("Verifying cube poses", cv2.WINDOW_NORMAL)
+        cv2.imshow("Verifying cube poses", cv_image)
+        key = cv2.waitKey(0)
+
+        if key == ord ('k'):
+            cv2.destroyAllWindows()
+            
+            grasp_cube(arm, t_robot_red)
+            green_copy = numpy.copy(t_robot_green)
+            green_copy[2,3] -= STACK_HEIGHT
+
+            place_cube(arm, green_copy)
+
     
     finally:
         # Close Lite6 Robot
