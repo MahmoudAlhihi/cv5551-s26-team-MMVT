@@ -83,7 +83,7 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     print(f"Centroid (m): {centroid}")
     print(f"Number of valid 3D points: {len(cpoints)}")
     
-    rotation_matrix = numpy.eye(3)
+    rotation_matrix = numpy.linalg.inv(camera_pose)[:3, :3]
 
     # constructing cam to cube transf
     t_cam_cube = numpy.eye(4)
