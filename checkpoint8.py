@@ -154,8 +154,7 @@ class CubePoseDetector:
 def main():
 
     # Initialize ZED Camera
-    zed = ZedCamera()
-    camera_intrinsic = zed.camera_intrinsic
+    cv_image, point_cloud = zed.get_synchronized_frame()
 
     # Initialize Cube Pose Detector
     cube_pose_detector = CubePoseDetector(camera_intrinsic)
