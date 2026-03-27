@@ -1,3 +1,4 @@
+
 import cv2, numpy, time, torch
 import open3d as o3d
 from scipy.spatial.transform import Rotation
@@ -10,7 +11,7 @@ from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 CUBE_SIZE = 0.025
 
-robot_ip = ''
+robot_ip = '192.168.1.166'
 
 def get_transform_cube(observation, camera_intrinsic, camera_pose):
     """
@@ -39,113 +40,75 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
         If no matching object is segmented, returns None.
     """
     image, point_cloud = observation
+
     # TODO
+    # semantic segmentation (red Mask)
+    # red spans the 0 and 180 boundaries in hsv
+    if image.shape[2] == 4:
+        bgr = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    else:
+        bgr = image
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    m1 = cv2.inRange(hsv, numpy.array([0, 80, 80]), numpy.array([10, 255, 255]))
+    m2 = cv2.inRange(hsv, numpy.array([160, 80, 80]), numpy.array([180, 255, 255]))
+    mask = cv2.bitwise_or(m1,m2)
+    
+    kernel= numpy.ones((5,5), numpy.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    cv2.imshow('Red Mask', mask)
+    cv2.waitKey(0)
 
-    # Using this: https://www.open3d.org/docs/latest/python_api/open3d.geometry.OrientedBoundingBox.html#open3d.geometry.OrientedBoundingBox.create_from_points
+    # filtering NaNs and extracting points
+    # point_cloud is (H, W, 4) -> [x, y, z, color]
+    raw_points = point_cloud[mask > 0][:, :3]
+    
+    # removing invalid depth readings (NaN or Inf)
+    cpoints = raw_points[numpy.all(numpy.isfinite(raw_points), axis=1)]
 
-    """
-    Estimating the cube pose from the raw ZED point cloud.
-
-    Steps:
-    1. Flatten the HxWx3 point cloud into an Nx3 list of points.
-    2. Remove invalid points (NaN / inf).
-    3. Convert the points into an Open3D PointCloud.
-    4. Remove the dominant plane (the tabletop).
-    5. Cluster the remaining points into separate objects.
-    6. Pick the cluster whose bounding box dimensions best match CUBE_SIZE.
-    7. Fit an oriented bounding box to that cluster.
-    8. Convert that pose from camera frame to robot frame.
-    """
-
-     # Flatten HxWx3 point cloud image into an Nx3 array of XYZ points.
-    pts = point_cloud[..., :3].reshape(-1, 3)
-
-    # Remove invalid 3D points.
-    pts = pts[numpy.isfinite(pts).all(axis=1)]
-
-    if len(pts) < 50:
-        print("Not enough valid points in point cloud after filtering.")
+    if len(cpoints) < 50:
+        print("Not enough valid points detected")
         return None
+    print(f"Point cloud sample: {point_cloud[600, 1100, :3]}")
 
-    # Create Open3D point cloud from valid points.
+    # using Open3D for Oriented Bounding Box
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pts)
+    pcd.points = o3d.utility.Vector3dVector(cpoints)
+    
+    # get center and rotation from the geometry
+    cpoints_m = cpoints / 1000.0
 
-    # Remove the dominant plane, which should usually be the tabletop.
-    plane_model, inliers = pcd.segment_plane(
-        distance_threshold=0.005,
-        ransac_n=3,
-        num_iterations=1000
-    )
+    T_cam_robot = camera_pose
+    T_robot_cam = numpy.linalg.inv(T_cam_robot)
 
-    # Keep only points that are NOT on the table plane.
-    object_pcd = pcd.select_by_index(inliers, invert=True)
+    ones = numpy.ones((len(cpoints_m), 1))
+    cpoints_robot = (T_robot_cam @ numpy.hstack([cpoints_m, ones]).T).T[:, :3]
 
-    if len(object_pcd.points) < 20:
-        print("Not enough non-plane points remain after removing table.")
-        return None
+    centroid_robot = numpy.mean(cpoints_robot, axis=0)
 
-    # Cluster the remaining points into separate objects.
-    # This helps separate the cube from the cup or any other clutter.
-    labels = numpy.array(
-        object_pcd.cluster_dbscan(
-            eps=0.02,         # neighborhood radius in meters
-            min_points=30,    # minimum cluster size
-            print_progress=False
-        )
-    )
+    pts_2d_robot = cpoints_robot[:, :2].astype(numpy.float32)
 
-    if labels.size == 0 or labels.max() < 0:
-        print("No object clusters found.")
-        return None
+    # fit oriented rectangle in robot XY plane
+    rect = cv2.minAreaRect(pts_2d_robot)
+    (center_xy, (w, h), angle_deg) = rect
 
-    best_cluster = None
-    best_score = float("inf")
+    # cv2 angle convention is weird; convert to cube edge yaw
+    if w < h:
+        angle_deg = angle_deg + 90.0
 
-    # Examine each cluster and choose the one most cube-like.
-    for label in range(labels.max() + 1):
-        idx = numpy.where(labels == label)[0]
-        if len(idx) < 20:
-            continue
+    yaw_robot = numpy.deg2rad(angle_deg)
 
-        cluster = object_pcd.select_by_index(idx)
+    Rz_robot = numpy.array([
+        [numpy.cos(yaw_robot), -numpy.sin(yaw_robot), 0],
+        [numpy.sin(yaw_robot),  numpy.cos(yaw_robot), 0],
+        [0,                     0,                    1]
+    ]) @ numpy.diag([1, -1, -1])
 
-        # Use an axis-aligned box first just to score the size.
-        aabb = cluster.get_axis_aligned_bounding_box()
-        extent = numpy.array(aabb.get_extent())
+    t_robot_cube = numpy.eye(4)
+    t_robot_cube[:3, :3] = Rz_robot
+    t_robot_cube[:3, 3] = centroid_robot
 
-        # Score how close this object's size is to the real cube size.
-        # Smaller score = more likely to be the cube.
-        score = numpy.sum((extent - CUBE_SIZE) ** 2)
-
-        print(f"Cluster {label}: extent = {extent}, score = {score}")
-
-        if score < best_score:
-            best_score = score
-            best_cluster = cluster
-
-    if best_cluster is None:
-        print("Could not find a cube-sized cluster.")
-        return None
-
-    # Fit an oriented bounding box to the chosen cube cluster.
-    obb = best_cluster.get_oriented_bounding_box()
-
-    print("Chosen OBB center:", obb.center)
-    print("Chosen OBB extent:", obb.extent)
-
-    # Build cube pose in camera frame.
-    t_cam_cube = numpy.eye(4)
-    t_cam_cube[:3, :3] = obb.R
-    t_cam_cube[:3, 3] = obb.center
-
-    # Convert cube pose from camera frame to robot frame.
-    t_robot_cube = numpy.linalg.inv(camera_pose) @ t_cam_cube
-    # OBB center is the geometric center of the cube.
-    # checkpoint1 grasp/place behavior works better when the pose translation
-    # corresponds to the cube's top face rather than its center.
-    # Since the cube is 0.025 m tall, shift by half the cube height.
-    t_robot_cube[2, 3] -= CUBE_SIZE / 2.0
+    t_cam_cube = T_cam_robot @ t_robot_cube
 
     return t_robot_cube, t_cam_cube
 
@@ -170,22 +133,21 @@ def main():
         cv_image = zed.image
         point_cloud = zed.point_cloud
 
-       # First estimate camera pose relative to robot using checkpoint 0.
+        t_cam_cube = None
+        # TODO
         t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
         if t_cam_robot is None:
-            print("Failed to compute camera-to-robot transform.")
+            print("Failed to detect registration tags")
             return
 
-        # Then estimate cube pose from the point cloud.
+        # detecting cube using pure vis
         result = get_transform_cube([cv_image, point_cloud], camera_intrinsic, t_cam_robot)
+        
         if result is None:
-            print("Cube not found.")
+            print("Cube detection failed")
             return
-
-        t_robot_cube, t_cam_cube = result
-
             
-        # TODO
+        t_robot_cube, t_cam_cube = result
         
         # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
@@ -193,22 +155,25 @@ def main():
         cv2.resizeWindow('Verifying Cube Pose', 1280, 720)
         cv2.imshow('Verifying Cube Pose', cv_image)
         key = cv2.waitKey(0)
-        
-        if key == ord('k'):
-        
-            cv2.destroyAllWindows()
-        
-            # TODO
 
+        if key == ord('k'):
+            cv2.destroyAllWindows()
+
+            # TODO
+            # grasp
             grasp_cube(arm, t_robot_cube)
+            time.sleep(0.5)
+            # place
             place_cube(arm, t_robot_cube)
+            # return home
+            arm.move_gohome(wait=True)
     
     finally:
         # Close Lite6 Robot
         arm.move_gohome(wait=True)
         time.sleep(0.5)
         arm.disconnect()
-    
+
         # Close ZED Camera
         zed.close()
 
