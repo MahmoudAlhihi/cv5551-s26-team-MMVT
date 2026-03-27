@@ -1,0 +1,142 @@
+import cv2, numpy, time
+from xarm.wrapper import XArmAPI
+from utils.vis_utils import draw_pose_axes
+from utils.zed_camera import ZedCamera
+from checkpoint0 import get_transform_camera_robot
+from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
+
+CUBE_SIZE = 0.025 # 25mm
+robot_ip = '192.168.1.155'
+
+def get_all_cube_poses(observation, camera_intrinsic, camera_pose):
+    """
+    Finds ALL red cubes and returns a list of (t_robot_cube, t_cam_cube)
+    using the top-surface centroid method.
+    """
+    image, point_cloud = observation
+    
+    # --- 1. Create the Mask ---
+    if image.shape[2] == 4:
+        bgr = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    else:
+        bgr = image
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    m1 = cv2.inRange(hsv, numpy.array([0, 80, 80]), numpy.array([10, 255, 255]))
+    m2 = cv2.inRange(hsv, numpy.array([160, 80, 80]), numpy.array([180, 255, 255]))
+    full_mask = cv2.bitwise_or(m1, m2)
+    
+    kernel = numpy.ones((5,5), numpy.uint8)
+    full_mask = cv2.morphologyEx(full_mask, cv2.MORPH_OPEN, kernel)
+    full_mask = cv2.morphologyEx(full_mask, cv2.MORPH_CLOSE, kernel)
+
+    # --- 2. Segment Individual Cubes ---
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(full_mask)
+    detected_poses = []
+
+    T_robot_cam = camera_pose  
+    T_cam_robot = numpy.linalg.inv(T_robot_cam)
+
+    for i in range(1, num_labels):
+        if stats[i, cv2.CC_STAT_AREA] < 500: # Ignore noise
+            continue
+            
+        # Create mask for JUST this cube
+        cube_mask = (labels == i).astype(numpy.uint8)
+        # Erode slightly to avoid edge noise
+        cube_mask = cv2.erode(cube_mask, numpy.ones((3,3), numpy.uint8), iterations=1)
+        
+        raw_points = point_cloud[cube_mask > 0][:, :3]
+        cpoints = raw_points[numpy.all(numpy.isfinite(raw_points), axis=1)]
+        
+        if len(cpoints) < 50:
+            continue
+
+        # --- 3. Apply your Top-Surface Centroid Logic ---
+        cpoints_m = cpoints / 1000.0
+        ones = numpy.ones((len(cpoints_m), 1))
+        cpoints_robot = (T_cam_robot @ numpy.hstack([cpoints_m, ones]).T).T[:, :3]
+
+        z_max = numpy.max(cpoints_robot[:, 2])
+        top_mask = cpoints_robot[:, 2] > (z_max - 0.005) 
+        top_points = cpoints_robot[top_mask]
+
+        if len(top_points) < 10:
+            continue
+
+        pts_2d_top = top_points[:, :2].astype(numpy.float32)
+        rect = cv2.minAreaRect(pts_2d_top)
+        (center_xy, (w, h), angle_deg) = rect
+
+        if w < h: angle_deg += 90.0
+        yaw_robot = numpy.deg2rad(angle_deg)
+        center_z = z_max - (CUBE_SIZE / 2.0)
+
+        Rz_robot = numpy.array([
+            [numpy.cos(yaw_robot), -numpy.sin(yaw_robot), 0],
+            [numpy.sin(yaw_robot),  numpy.cos(yaw_robot), 0],
+            [0,                     0,                    1]
+        ]) @ numpy.diag([1, -1, -1])
+
+        t_robot_cube = numpy.eye(4)
+        t_robot_cube[:3, :3] = Rz_robot
+        t_robot_cube[:3, 3] = [center_xy[0], center_xy[1], center_z]
+        
+        t_cam_cube = T_robot_cam @ t_robot_cube
+        detected_poses.append((t_robot_cube, t_cam_cube))
+
+    return detected_poses
+
+def main():
+    zed = ZedCamera()
+    arm = XArmAPI(robot_ip)
+    arm.connect()
+    arm.motion_enable(enable=True)
+    arm.set_tcp_offset([0, 0, GRIPPER_LENGTH, 0, 0, 0])
+    arm.set_mode(0)
+    arm.set_state(0)
+    arm.move_gohome(wait=True)
+
+    try:
+        cv_image, point_cloud = zed.get_synchronized_frame()
+        t_cam_robot = get_transform_camera_robot(cv_image, zed.camera_intrinsic)
+        
+        if t_cam_robot is None: return
+
+        # Get all cubes
+        cube_results = get_all_cube_poses([cv_image, point_cloud], zed.camera_intrinsic, t_cam_robot)
+        
+        for t_robot, t_cam in cube_results:
+            draw_pose_axes(cv_image, zed.camera_intrinsic, t_cam)
+
+        cv2.imshow('Detected Cubes', cv_image)
+        if cv2.waitKey(0) != ord('k'): return
+
+        # --- INFINITE STACKING ---
+        # We'll use the first cube's location as the base of the stack
+        base_t_robot = cube_results[0][0].copy()
+        
+        for i, (t_robot_cube, _) in enumerate(cube_results):
+            print(f"Stacking cube {i+1}...")
+            
+            # Grasp from its detected position
+            grasp_cube(arm, t_robot_cube)
+            
+            # Calculate stack target: base XY, but Z increases by CUBE_SIZE * i
+            stack_target = base_t_robot.copy()
+            # If Z+ is UP in your robot frame, use +=
+            # If Z- is UP (as in some cam-robot frames), use -=
+            stack_target[2, 3] += (i * CUBE_SIZE) 
+            
+            place_cube(arm, stack_target)
+            
+            # Move slightly up/away after placing to avoid knocking the stack
+            arm.set_position(z=100, relative=True, wait=True)
+
+        arm.move_gohome(wait=True)
+
+    finally:
+        arm.disconnect()
+        zed.close()
+
+if __name__ == "__main__":
+    main()
