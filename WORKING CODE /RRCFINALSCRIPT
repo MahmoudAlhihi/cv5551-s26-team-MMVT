@@ -30,8 +30,18 @@ def get_all_cube_poses(observation, camera_intrinsic, camera_pose):
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
     m1 = cv2.inRange(hsv, numpy.array([0, 80, 80]), numpy.array([10, 255, 255]))
     m2 = cv2.inRange(hsv, numpy.array([160, 80, 80]), numpy.array([180, 255, 255]))
-    full_mask = cv2.bitwise_or(m1, m2)
+    m3 = cv2.inRange(hsv, numpy.array([35, 50, 50]), numpy.array([80, 255, 255]))
+    m4 = cv2.inRange(hsv, numpy.array([90,80,60]), numpy.array([130,255,255]))
+            
+    mask_red = cv2.bitwise_or(m1, m2)
+    mask_green = m3
+    mask_blue = m4
     
+    # 2. COMBINE all masks into one (This is the missing step!)
+    full_mask = cv2.bitwise_or(mask_red, mask_green)
+    full_mask = cv2.bitwise_or(full_mask, mask_blue)
+    
+    # 3. Clean up the COMBINED mask once
     kernel = numpy.ones((5,5), numpy.uint8)
     full_mask = cv2.morphologyEx(full_mask, cv2.MORPH_OPEN, kernel)
     full_mask = cv2.morphologyEx(full_mask, cv2.MORPH_CLOSE, kernel)
