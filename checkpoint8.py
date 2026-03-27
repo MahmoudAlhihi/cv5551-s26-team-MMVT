@@ -1,13 +1,13 @@
 import cv2, numpy, time
-import open3d as o3d
-from scipy.spatial.transform import Rotation
+#import open3d as o3d
+#from scipy.spatial.transform import Rotation
 from xarm.wrapper import XArmAPI
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
-from checkpoint6 import CUBE_SIZE
+#from checkpoint6 import CUBE_SIZE
 
 cube_prompt = 'blue cube'
 robot_ip = '192.168.1.182'
@@ -84,9 +84,9 @@ class CubePoseDetector:
         for lo, hi in self.color_hsv_ranges[color]:
             mask |= cv2.inRange(hsv, lo, hi)
  
-        kernel = numpy.ones((3, 3), numpy.uint8)
+        kernel = numpy.ones((5, 5), numpy.uint8)
         mask   = cv2.morphologyEx(mask, cv2.MORPH_OPEN,   kernel, iterations=2)
-        mask   = cv2.morphologyEx(mask, cv2.MORPH_DILATE, kernel, iterations=1)
+        mask   = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
  
         if mask.sum() == 0:
             print(f'No pixels matched colour "{color}".')
@@ -101,23 +101,51 @@ class CubePoseDetector:
             return None
  
         # Open3D oriented bounding box for pose
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(cpoints.astype(numpy.float64))
-        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+        # pcd = o3d.geometry.PointCloud()
+        # pcd.points = o3d.utility.Vector3dVector(cpoints.astype(numpy.float64))
+        # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
  
-        if len(pcd.points) < 4:
-            print('Too less inlier points after outlier removal')
-            return None
+        # if len(pcd.points) < 4:
+        #     print('Too less inlier points after outlier removal')
+        #     return None
  
-        obb = pcd.get_oriented_bounding_box()
+        # obb = pcd.get_oriented_bounding_box()
+
+        cpoints_m = cpoints / 1000.0
  
-        # build camera-frame transform
-        t_cam_cube          = numpy.eye(4)
-        t_cam_cube[:3, :3]  = numpy.asarray(obb.R)
-        t_cam_cube[:3,  3]  = numpy.asarray(obb.center)
+        T_cam_robot = self.camera_pose
+        T_robot_cam = numpy.linalg.inv(T_cam_robot)
+
+        # transform points into robot frame to match cp6
+        ones = numpy.ones((len(cpoints_m), 1))
+        cpoints_robot = (T_robot_cam @ numpy.hstack([cpoints_m, ones]).T).T[:, :3]
+
+        # compute centroid in robot frame
+        centroid_robot = numpy.mean(cpoints_robot, axis=0)
  
-        # transforn to robot base frame - camera_pose is t_cam_robot
-        t_robot_cube = numpy.linalg.inv(self.camera_pose) @ t_cam_cube
+        # fit minAreaRect on robot XY plane for yaw
+        pts_2d_robot = cpoints_robot[:, :2].astype(numpy.float32)
+        rect = cv2.minAreaRect(pts_2d_robot)
+        (center_xy, (w, h), angle_deg) = rect
+ 
+        if w < h:
+            angle_deg = angle_deg + 90.0
+ 
+        yaw_robot = numpy.deg2rad(angle_deg)
+ 
+        # build rot matrix from yaw
+        Rz_robot = numpy.array([
+            [numpy.cos(yaw_robot), -numpy.sin(yaw_robot), 0],
+            [numpy.sin(yaw_robot),  numpy.cos(yaw_robot), 0],
+            [0,                     0,                    1]
+        ]) @ numpy.diag([1, -1, -1])
+ 
+        # build t_robot_cube directly, then back project to camera frame
+        t_robot_cube = numpy.eye(4)
+        t_robot_cube[:3, :3] = Rz_robot
+        t_robot_cube[:3,  3] = centroid_robot
+ 
+        t_cam_cube = T_cam_robot @ t_robot_cube
  
         return t_robot_cube, t_cam_cube
 
