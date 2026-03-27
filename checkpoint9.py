@@ -9,7 +9,7 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 from checkpoint4 import STACK_HEIGHT
 
-robot_ip = '192.168.1.182'
+robot_ip = '192.168.1.155'
 
 def main():
 

@@ -9,8 +9,8 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 #from checkpoint6 import CUBE_SIZE
 
-cube_prompt = 'blue cube'
-robot_ip = '192.168.1.182'
+cube_prompt = 'green cube'
+robot_ip = '192.168.1.155'
 
 class CubePoseDetector:
     """
@@ -154,7 +154,8 @@ class CubePoseDetector:
 def main():
 
     # Initialize ZED Camera
-    cv_image, point_cloud = zed.get_synchronized_frame()
+    zed = ZedCamera()
+    camera_intrinsic = zed.camera_intrinsic 
 
     # Initialize Cube Pose Detector
     cube_pose_detector = CubePoseDetector(camera_intrinsic)
