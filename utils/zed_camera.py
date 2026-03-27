@@ -80,6 +80,12 @@ class ZedCamera:
         with self._lock:
             return self._point_cloud.copy() if self._point_cloud is not None else None
 
+    def get_synchronized_frame(self):
+         with self._lock:
+             image = self._image.copy() if self._image is not None else None
+             point_cloud = self._point_cloud.copy() if self._point_cloud is not None else None
+         return image, point_cloud
+
     @property
     def camera_intrinsic(self):
         return self._camera_intrinsic

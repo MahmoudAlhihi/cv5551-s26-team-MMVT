@@ -5,6 +5,13 @@ from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
+def get_synchronized_frame(self):
+     with self._lock:
+         image = self._image.copy() if self._image is not None else None
+         point_cloud = self._point_cloud.copy() if self._point_cloud is not None else None
+     return image, point_cloud
+
+
 CUBE_SIZE = 0.025 # 25mm
 robot_ip = '192.168.1.155'
 
