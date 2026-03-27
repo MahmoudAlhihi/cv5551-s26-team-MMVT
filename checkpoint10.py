@@ -33,8 +33,7 @@ def main():
 
     try:
         # Get Observation
-        cv_image = zed.image
-        point_cloud = zed.point_cloud
+        cv_image, point_cloud = zed.get_synchronized_frame()
 
         # TODO
         # compute cam to robot transf
