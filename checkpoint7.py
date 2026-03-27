@@ -14,8 +14,7 @@ robot_ip = '192.168.1.182'
 def main():
 
     # Initialize ZED Camera
-    zed = ZedCamera()
-    camera_intrinsic = zed.camera_intrinsic
+    cv_image, point_cloud = zed.get_synchronized_frame()
 
     # Initialize Lite6 Robot
     arm = XArmAPI(robot_ip)
