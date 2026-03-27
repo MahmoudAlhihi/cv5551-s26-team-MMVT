@@ -1,3 +1,4 @@
+
 import cv2, numpy, time, torch
 import open3d as o3d
 from scipy.spatial.transform import Rotation
@@ -75,7 +76,6 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     pcd.points = o3d.utility.Vector3dVector(cpoints)
     
     # get center and rotation from the geometry
-    obb = pcd.get_oriented_bounding_box()
     cpoints_m = cpoints / 1000.0
 
     T_cam_robot = camera_pose
@@ -130,8 +130,7 @@ def main():
 
     try:
         # Get Observation
-        cv_image = zed.image
-        point_cloud = zed.point_cloud
+        cv_image, point_cloud = zed.get_synchronized_frame()
 
         t_cam_cube = None
         # TODO
