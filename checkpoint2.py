@@ -1,16 +1,17 @@
 import cv2, numpy, time
 from xarm.wrapper import XArmAPI
-
+import math
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, get_transform_cube, GRIPPER_LENGTH
 
 # TODO
-BASKET_POSE = [228.1, -303.6, 23.2, 178.2, -3.8, 4.1] # Measure it using the robot's free drive mode.
-CUP_CLEARANCE_HEIGHT = 120
+BASKET_POSE = [229.4, -296.4, 23.2, 178.2, -3.8, 4.1 ] # Measure it using the robot's free drive mode.
 
-robot_ip = '192.168.1.158'
+BASKET_APPROACH_HEIGHT = 0.12 # height(metres) to approach above the basket before releasing
+
+robot_ip = '192.168.1.155'
 
 def place_in_basket(arm, basket_pose, vaccum_gripper=False):
     """
@@ -19,31 +20,41 @@ def place_in_basket(arm, basket_pose, vaccum_gripper=False):
     Parameters
     ----------
     arm : xarm.wrapper.XArmAPI
-        The initialized XArm API object controlling the Lite6 robot.
+        The initialized XArm API object contring the Lite6 robot.
     basket_pose : list or numpy.ndarray
         A 6-element array representing the target drop-off pose in the robot 
-        base frame formatted as [x, y, z, roll, pitch, yaw]. 
+        base frame formatted as [x, y, z, r, p, y]. 
         Translational units (x, y, z) are in meters, and rotational units 
-        (roll, pitch, yaw) are in radians.
+        (r, p, y) are in radians.
     vaccum_gripper : bool, optional
         If True, uses the vacuum gripper logic instead of the standard Lite6 
         gripper. Defaults to False.
     """
     # TODO
-    x = basket_pose[0] 
-    y = basket_pose[1] 
-    z = basket_pose[2] 
-    r = numpy.radians(basket_pose[3])
-    p = numpy.radians(basket_pose[4])
-    yaw = numpy.radians(basket_pose[5])
-    arm.set_position(x,y,z + CUP_CLEARANCE_HEIGHT, r,p,yaw, is_radian = True, wait = True)
-    time.sleep(0.5)
-    arm.open_lite6_gripper()
-    time.sleep(0.5)
-    arm.stop_lite6_gripper()
-    arm.set_position(x,y,z + CUP_CLEARANCE_HEIGHT + 30, r,p,yaw, is_radian = True, wait = True)
-
-
+    # convert metres to radians for xArm API
+    x = basket_pose[0]
+    y = basket_pose[1]
+    z = basket_pose[2]
+    r = basket_pose[3] * (math.pi)/180
+    p = basket_pose[4] * (math.pi)/180
+    yaw = basket_pose[5] * (math.pi)/180
+ 
+    # approach from a safe height above the basket so we clear the cup lip
+    z_offset = z + BASKET_APPROACH_HEIGHT * 1000
+    arm.set_position(x, y, z_offset, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.3)
+ 
+    # release objecty
+    if vaccum_gripper:
+        arm.set_vacuum_gripper(False, wait=True)
+    else:
+        arm.open_lite6_gripper()
+        time.sleep(0.5)
+        arm.stop_lite6_gripper()
+ 
+    # Retreat back up so we don't knock the cupg
+    arm.set_position(x, y, z_offset + 30, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.3)
 
 def main():
 
@@ -66,13 +77,19 @@ def main():
         cv_image = zed.image
 
         t_cam_cube = None
+        #TODO
+        # capture image and compute camera to robot transform
         t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
         if t_cam_robot is None:
+            print('Failed to compute cam-robot transform')
             return
-        cube_transforms = get_transform_cube(cv_image, camera_intrinsic, t_cam_robot)
-        if cube_transforms is None:
+
+        # detect cube pose
+        result = get_transform_cube(cv_image, camera_intrinsic, t_cam_robot)
+        if result is None:
+            print('Cube not found')
             return
-        t_robot_cube, t_cam_cube = cube_transforms
+        t_robot_cube, t_cam_cube = result
         
         # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
@@ -84,6 +101,8 @@ def main():
         if key == ord('k'):
             cv2.destroyAllWindows()
 
+            # TODO
+            # pick up the cube, then drop it in the basket
             grasp_cube(arm, t_robot_cube)
             place_in_basket(arm, BASKET_POSE)
     

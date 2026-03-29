@@ -2,7 +2,6 @@ from checkpoint3 import CubePoseDetector
 
 import cv2, time
 from xarm.wrapper import XArmAPI
-import numpy
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
@@ -10,9 +9,9 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 # TODO
-STACK_HEIGHT = 0.025   # Determine a suitable height yourself
+STACK_HEIGHT = 0.025   # Determine a suitable height yourself (0.025)
 
-robot_ip = '192.168.1.182'
+robot_ip = '192.168.1.166'
 
 def main():
 
@@ -37,35 +36,49 @@ def main():
         # Get Observation
         cv_image = zed.image
 
+        # TODO
+        # setting the cam to robot transf
         t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
         if t_cam_robot is None:
+            print("Workspace registration failed")
             return
+
+        # updating detector with the current cam pose
         cube_pose_detector.camera_pose = t_cam_robot
 
-        red = cube_pose_detector.get_transforms(cv_image, 'red cube')
-        if red == None:
-            return 
-        green = cube_pose_detector.get_transforms(cv_image, 'green cube')
-        if green == None:
-            return 
-        t_robot_red, t_cam_red = red
-        t_robot_green, t_cam_green = green
+        # finding the red (to pick) and green (to stack) cubes
+        redr = cube_pose_detector.get_transforms(cv_image, 'red')
+        greenr = cube_pose_detector.get_transforms(cv_image, 'green')
 
+        if redr is None or greenr is None:
+            print("Could not locate both cubes for stacking")
+            return
+        
+        t_robot_red, t_cam_red = redr
+        t_robot_green, t_cam_green = greenr
+
+        # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_red)
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_green)
-        cv2.namedWindow("Verifying cube poses", cv2.WINDOW_NORMAL)
-        cv2.imshow("Verifying cube poses", cv_image)
-        key = cv2.waitKey(0)
+        cv2.imwrite('verify_stack.jpg', cv_image)
+        print("Saved verify_stack.jpg — check it, then type 'k' + Enter to stack:")
+        if input().strip() != 'k':
+            print("Aborted")
+            return
 
-        if key == ord ('k'):
-            cv2.destroyAllWindows()
-            
-            grasp_cube(arm, t_robot_red)
-            green_copy = numpy.copy(t_robot_green)
-            green_copy[2,3] -= STACK_HEIGHT
+        # pick up the red cube
+        grasp_cube(arm, t_robot_red)
+        time.sleep(0.5)
 
-            place_cube(arm, green_copy)
+            # calv stack pose
+        t_robot_stack = t_robot_green.copy()
+        t_robot_stack[2, 3] -= STACK_HEIGHT #check this on lab
+            # align orientation with green cube
+        t_robot_stack[:3, :3] = t_robot_green[:3, :3]
 
+            # place red cube on green cube
+        place_cube(arm, t_robot_stack)
+        print("stacking complete")
     
     finally:
         # Close Lite6 Robot

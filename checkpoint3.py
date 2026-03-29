@@ -11,7 +11,7 @@ from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH, CUBE_TAG_FAMILY,
 from sam3 import build_sam3_image_model
 from sam3.model.sam3_image_processor import Sam3Processor
 
-cube_prompt = 'blue cube'
+cube_prompt = 'red cube'
 robot_ip = '192.168.1.155'
 
 SAM3_CHECKPOINT = '/home/rob/sam3/checkpoints/sam3.pt'
@@ -31,6 +31,8 @@ class CubePoseDetector:
         self.detector = Detector(families=CUBE_TAG_FAMILY)
 
         print("Loading SAM 3 model...")
+        
+        # TF32 is the sweet spot between FP32 (slow and accurate) and FP16(fast and less accurate)
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
         self.model = build_sam3_image_model(checkpoint_path=SAM3_CHECKPOINT)
@@ -211,15 +213,14 @@ def main():
             return
         t_robot_cube, t_cam_cube = result
 
-        # Visualization
-        #draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
-        #cv2.namedWindow('Verifying Cube Pose', cv2.WINDOW_NORMAL)
-        #cv2.resizeWindow('Verifying Cube Pose', 1280, 720)
-        #cv2.imshow('Verifying Cube Pose', cv_image)
-        #key = cv2.waitKey(0)
-
-        #if key == ord('k'):
-         #   cv2.destroyAllWindows()
+       # Visualization
+        draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
+        cv2.imwrite('verify_pose.jpg', cv_image)
+        print("Saved verify_pose.jpg — check it, then type 'k' + Enter to execute:")
+        if input().strip() != 'k':
+            print("Aborted")
+            return
+        
         grasp_cube(arm, t_robot_cube)
         place_cube(arm, t_robot_cube)
 
