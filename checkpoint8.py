@@ -1,16 +1,17 @@
 import cv2, numpy, time
-import open3d as o3d
-from scipy.spatial.transform import Rotation
+#import open3d as o3d
+#from scipy.spatial.transform import Rotation
 from xarm.wrapper import XArmAPI
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
-from checkpoint6 import CUBE_SIZE
+#from checkpoint6 import CUBE_SIZE
+from checkpoint6 import get_sam3_mask
 
-cube_prompt = 'blue cube'
-robot_ip = ''
+cube_prompt = 'green cube'
+robot_ip = '192.168.1.155'
 
 class CubePoseDetector:
     """
@@ -31,6 +32,9 @@ class CubePoseDetector:
         """
         self.camera_intrinsic = camera_intrinsic
         # TODO
+        self.camera_pose = None  # set to t_cam_robot before calling get_transforms
+        
+
 
     def get_transforms(self, observation, cube_prompt):
         """
@@ -55,12 +59,105 @@ class CubePoseDetector:
         image, point_cloud = observation
 
         # TODO
+        # parse colour from prompt
+        color = None
+        for c in ['red', 'green', 'blue']:
+            if c in cube_prompt.lower():
+                color = c
+                break
+        if color is None:
+            print(f'Could not parse colour from prompt: "{cube_prompt}"')
+            return None
+ 
+        # build HSV mask
+        if len(image.shape) == 3 and image.shape[2] == 4:
+            bgr = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+        else:
+            bgr = image.copy()
+ 
+        mask = get_sam3_mask(bgr, color=color)
+        if mask is None:
+            print(f'SAM 3 failed to segment "{color}" cube')
+            return None
+ 
+        mask_area = mask.sum()
+        print(f"SAM 3 mask area for '{color}': {mask_area} pixels")
+        if mask_area < 100:
+            print("Mask too small")
+            return None
+ 
+        kernel = numpy.ones((5, 5), numpy.uint8)
+        mask   = cv2.morphologyEx(mask, cv2.MORPH_OPEN,   kernel, iterations=2)
+        mask   = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+ 
+        if mask.sum() == 0:
+            print(f'No pixels matched colour "{color}".')
+            return None
+ 
+        # extract 3D points under the mask and filter NaNs
+        raw_points = point_cloud[mask > 0][:, :3]
+        cpoints    = raw_points[numpy.all(numpy.isfinite(raw_points), axis=1)]
+ 
+        if len(cpoints) < 50:
+            print(f'Too few valid points ({len(cpoints)}) for "{color}" cube')
+            return None
+ 
+        # Open3D oriented bounding box for pose
+        # pcd = o3d.geometry.PointCloud()
+        # pcd.points = o3d.utility.Vector3dVector(cpoints.astype(numpy.float64))
+        # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+ 
+        # if len(pcd.points) < 4:
+        #     print('Too less inlier points after outlier removal')
+        #     return None
+ 
+        # obb = pcd.get_oriented_bounding_box()
+
+        cpoints_m = cpoints / 1000.0
+ 
+        T_cam_robot = self.camera_pose
+        T_robot_cam = numpy.linalg.inv(T_cam_robot)
+
+        # transform points into robot frame to match cp6
+        ones = numpy.ones((len(cpoints_m), 1))
+        cpoints_robot = (T_robot_cam @ numpy.hstack([cpoints_m, ones]).T).T[:, :3]
+
+        # compute centroid in robot frame
+        centroid_robot = numpy.mean(cpoints_robot, axis=0)
+ 
+        # fit minAreaRect on robot XY plane for yaw
+        pts_2d_robot = cpoints_robot[:, :2].astype(numpy.float32)
+        rect = cv2.minAreaRect(pts_2d_robot)
+        (center_xy, (w, h), angle_deg) = rect
+ 
+        if w < h:
+            angle_deg = angle_deg + 90.0
+ 
+        yaw_robot = numpy.deg2rad(angle_deg)
+ 
+        # build rot matrix from yaw
+        Rz_robot = numpy.array([
+            [numpy.cos(yaw_robot), -numpy.sin(yaw_robot), 0],
+            [numpy.sin(yaw_robot),  numpy.cos(yaw_robot), 0],
+            [0,                     0,                    1]
+        ]) @ numpy.diag([1, -1, -1])
+ 
+        # build t_robot_cube directly, then back project to camera frame
+        t_robot_cube = numpy.eye(4)
+        t_robot_cube[:3, :3] = Rz_robot
+        t_robot_cube[:3,  3] = centroid_robot
+ 
+        t_cam_cube = T_cam_robot @ t_robot_cube
+ 
+        return t_robot_cube, t_cam_cube
+
+
 
 def main():
 
     # Initialize ZED Camera
     zed = ZedCamera()
-    camera_intrinsic = zed.camera_intrinsic
+    camera_intrinsic = zed.camera_intrinsic 
 
     # Initialize Cube Pose Detector
     cube_pose_detector = CubePoseDetector(camera_intrinsic)
@@ -82,18 +179,30 @@ def main():
 
         t_cam_cube = None
         # TODO
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        if t_cam_robot is None:
+            print('Failed to compute cam-robot transf')
+            return
+ 
+        cube_pose_detector.camera_pose = t_cam_robot
+ 
+        result = cube_pose_detector.get_transforms([cv_image, point_cloud], cube_prompt)
+        if result is None:
+            print(f'Could not detect "{cube_prompt}"')
+            return
+        t_robot_cube, t_cam_cube = result
 
         # Visualization
         draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
-        cv2.namedWindow('Verifying Cube Pose', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Verifying Cube Pose', 1280, 720)
-        cv2.imshow('Verifying Cube Pose', cv_image)
-        key = cv2.waitKey(0)
-    
-        if key == ord('k'):
-            cv2.destroyAllWindows()
+        cv2.imwrite('verify_pose_cp8.jpg', cv_image)
+        print("Saved verify_pose_cp8.jpg — check it, then type 'k' + Enter to execute:")
+        if input().strip() != 'k':
+            print("Aborted")
+            return
 
             # TODO
+        grasp_cube(arm, t_robot_cube)
+        place_cube(arm, t_robot_cube)
     
     finally:
         # Close Lite6 Robot

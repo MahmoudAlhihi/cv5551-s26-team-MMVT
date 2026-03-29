@@ -9,13 +9,15 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, GRIPPER_LENGTH
 from checkpoint2 import place_in_basket, BASKET_POSE
 
-robot_ip = ''
+robot_ip = '192.168.1.155'
 
 def main():
 
-    # Initialize ZED Camera
     zed = ZedCamera()
-    camera_intrinsic = zed.camera_intrinsic
+    camera_intristnic = zed.camera_intrinsic
+
+    # Initialize ZED Camera
+    cv_image, point_cloud = zed.get_synchronized_frame()
 
     # Initialize Lite6 Robot
     arm = XArmAPI(robot_ip)
@@ -34,18 +36,34 @@ def main():
 
         t_cam_cube = None
         # TODO
+        # Compute camera → robot transform
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intristnic)
+        if t_cam_robot is None:
+            print("Failed to detect registration tags")
+            return
+
+        result = get_transform_cube([cv_image, point_cloud], camera_intristnic, t_cam_robot)
+        if result is None:
+            print("Cube detection failed")
+            return
+
+        t_robot_cube, t_cam_cube = result
+        
         
         # Visualization
-        draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
-        cv2.namedWindow('Verifying Cube Pose', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Verifying Cube Pose', 1280, 720)
-        cv2.imshow('Verifying Cube Pose', cv_image)
-        key = cv2.waitKey(0)
-
-        if key == ord('k'):
-            cv2.destroyAllWindows()
+        draw_pose_axes(cv_image, camera_intristnic, t_cam_cube)
+        cv2.imwrite('verify_pose_cp7.jpg', cv_image)
+        print("Saved verify_pose_cp7.jpg — check it, then type 'k' + Enter to execute:")
+        if input().strip() != 'k':
+            print("Aborted")
+            return
 
             # TODO
+            # pick and place into basket
+            grasp_cube(arm, t_robot_cube)
+            time.sleep(0.5)
+            place_in_basket(arm, BASKET_POSE)
+            
     
     finally:
         # Close Lite6 Robot
