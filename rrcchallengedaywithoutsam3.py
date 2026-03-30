@@ -19,7 +19,7 @@ from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
-ROBOT_IP = '192.168.1.155'
+ROBOT_IP = '192.168.1.183'
 
 # Phy cube size bounds (metres)
 # The rectangle footprint estimate is clamped to these limits to discard
@@ -27,14 +27,16 @@ ROBOT_IP = '192.168.1.155'
 MIN_CUBE_SIZE_M = 0.015 # 15 mm: smallest cube in challenge
 MAX_CUBE_SIZE_M = 0.040 # 40 mm: largest cube in challenge
 
+STACK_BASE = [229.4, -296.4, 23.2]  # [x, y, z] in mm — adjust for your arena
+
 # Stacking tuning
 # Extra clearance added between the top face of the cube below and the bottom
 # face of the cube being placed, to avoid a collision on descent
-PLACE_MARGIN_M = 0.003 # 3 mm gap between stacked faces
+PLACE_MARGIN_M = 0.005 # 3 mm gap between stacked faces
 
 # How far the arm retracts upward (mm) after each placement before moving
 # to the next cube's position, so it doesn't collide with the growing tower
-POST_PLACE_LIFT_MM = 100
+POST_PLACE_LIFT_MM = 40
 
 # Detection thresholds
 MIN_COMPONENT_AREA = 500 # pixels: blobs smaller than this are ignored
@@ -253,40 +255,43 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
         return
 
     n = len(cubes)
-    print(f"\nStacking order ({n} cube{'s' if n > 1 else ''}, "
-          f"largest → smallest):")
+    print(f"\nStacking order ({n} cubes, largest → smallest):")
     for i, c in enumerate(cubes):
-        role = "BASE — stays in place" if i == 0 else f"level {i + 1}"
+        role = "BASE" if i == 0 else f"level {i + 1}"
         print(f"  {i+1}. {c['colour']:6s}  {c['size_m']*1000:.1f} mm  [{role}]")
 
-    # XY position and orientation anchor, every cube is placed above this
+    # Build a base transform at the fixed stacking location
     base_t = cubes[0]['t_robot'].copy()
+    base_t[0, 3] = STACK_BASE[0] / 1000.0  # convert mm to metres
+    base_t[1, 3] = STACK_BASE[1] / 1000.0
+    base_t[2, 3] = STACK_BASE[2] / 1000.0
+
+    # Move the first (largest) cube to the base position
+    print(f"\n── Cube 1/{n}: {cubes[0]['colour']} (BASE) ──")
+    grasp_cube(arm, cubes[0]['t_robot'])
+    place_cube(arm, base_t)
 
     # z_top starts at the top face of the base cube
-    z_top = base_t[2, 3] + cubes[0]['size_m'] / 2.0
+    z_top = base_t[2, 3] - cubes[0]['size_m'] / 2.0
 
     for i in range(1, n):
         cube = cubes[i]
         print(f"\n── Cube {i+1}/{n}: {cube['colour']}  "
               f"({cube['size_m']*1000:.1f} mm) ──")
 
-        # Pick the cube from its detected position in the scene
         grasp_cube(arm, cube['t_robot'])
 
-        # Place it so its centre sits at target_z above the current stack top
-        target_z = z_top + PLACE_MARGIN_M + cube['size_m'] / 2.0
+        target_z = z_top - PLACE_MARGIN_M - cube['size_m'] / 2.0
 
         stack_target = base_t.copy()
-        stack_target[2, 3] = target_z # only Z changes per level
-        stack_target[:3, :3] = base_t[:3, :3] # XY and yaw stay fixed
+        stack_target[2, 3] = target_z
+        stack_target[:3, :3] = base_t[:3, :3]
 
         place_cube(arm, stack_target)
 
-        # Retract upward so the arm clears the tower before the next move
-        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True)
+        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=1000, mvacc=1000)
 
-        # Advance z_top to the new top face of the stack
-        z_top = target_z + cube['size_m'] / 2.0
+        z_top = target_z - cube['size_m'] / 2.0
 
     print("\nAll cubes stacked.")
 
@@ -301,9 +306,11 @@ def main():
     arm.set_mode(0)
     arm.set_state(0)
     arm.move_gohome(wait=True)
-    time.sleep(0.5)
+    time.sleep(0.1)
 
     try:
+
+
         cv_image, point_cloud = zed.get_synchronized_frame()
         t_cam_robot = get_transform_camera_robot(cv_image, zed.camera_intrinsic)
         if t_cam_robot is None:
