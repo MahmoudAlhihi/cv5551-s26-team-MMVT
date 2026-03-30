@@ -14,7 +14,7 @@ from sam3.model.sam3_image_processor import Sam3Processor
 
 CUBE_SIZE = 0.025
 
-robot_ip = '192.168.1.155'
+robot_ip = '192.168.1.183'
 SAM3_CHECKPOINT = '/home/rob/sam3/checkpoints/sam3.pt'
 
 PROMPT_MAP = {
@@ -217,7 +217,8 @@ def main():
 
     try:
         # Get Observation
-        cv_image, point_cloud = zed.get_synchronized_frame()
+        cv_image = zed.image
+        point_cloud = zed.point_cloud
 
         t_cam_cube = None
         # TODO

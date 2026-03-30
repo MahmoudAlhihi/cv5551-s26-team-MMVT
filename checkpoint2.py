@@ -11,7 +11,7 @@ BASKET_POSE = [229.4, -296.4, 23.2, 178.2, -3.8, 4.1 ] # Measure it using the ro
 
 BASKET_APPROACH_HEIGHT = 0.12 # height(metres) to approach above the basket before releasing
 
-robot_ip = '192.168.1.155'
+robot_ip = '192.168.1.183'
 
 def place_in_basket(arm, basket_pose, vaccum_gripper=False):
     """

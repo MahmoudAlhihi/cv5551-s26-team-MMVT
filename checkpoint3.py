@@ -12,7 +12,7 @@ from sam3 import build_sam3_image_model
 from sam3.model.sam3_image_processor import Sam3Processor
 
 cube_prompt = 'red cube'
-robot_ip = '192.168.1.155'
+robot_ip = '192.168.1.183'
 
 SAM3_CHECKPOINT = '/home/rob/sam3/checkpoints/sam3.pt'
 
