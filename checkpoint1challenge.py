@@ -62,6 +62,50 @@ def grasp_cube(arm, cube_pose):
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.5)
 
+def grasp_cube(arm, cube_pose):
+    """
+    Execute a pick sequence to grasp a cube at a specified pose.
+
+    Parameters
+    ----------
+    arm : xarm.wrapper.XArmAPI
+        The initialized XArm API object controlling the Lite6 robot.
+    cube_pose : numpy.ndarray
+        A 4x4 transformation matrix representing the cube's pose in the robot base frame.
+        All translational units in this matrix are in meters.
+    """
+    # TODO
+    # extract position: convert metres to mm for xArm API
+    x = cube_pose[0, 3] * 1000
+    y = cube_pose[1, 3] * 1000
+    z = cube_pose[2, 3] * 1000
+ 
+    # extract yaw from rotation matrix so gripper aligns with cube orientation
+    rot = Rotation.from_matrix(cube_pose[:3, :3])
+    r, p, yaw = rot.as_euler('xyz', degrees=False)
+ 
+    # open gripper before approaching
+    arm.open_lite6_gripper()
+    time.sleep(0.5)
+    arm.stop_lite6_gripper()
+ 
+    # move to pre grasp height above the cube
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(2)
+ 
+    # move to grasp height
+    arm.set_position(x, y, -z + 35, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.5)
+ 
+    # close gripper
+    arm.close_lite6_gripper()
+    time.sleep(1)
+    arm.stop_lite6_gripper()
+ 
+    # lift back to safe height
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.5)
+
 def place_cube(arm, cube_pose):
     """
     Execute a place sequence to release a cube at a specified pose.

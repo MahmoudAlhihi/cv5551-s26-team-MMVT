@@ -44,7 +44,7 @@ PRE_GRASP_HEIGHT = 80
 # Detection thresholds
 MIN_COMPONENT_AREA = 500 # pixels: blobs smaller than this are ignored
 MIN_3D_POINTS = 50  # min finite point cloud points per blob
-TOP_SURFACE_SLICE_M = 0.01 # 5 mm: height of the top surface slice used
+TOP_SURFACE_SLICE_M = 0.0105 # 5 mm: height of the top surface slice used
                             # for centre and orient est.
 
 # HSV colour ranges
