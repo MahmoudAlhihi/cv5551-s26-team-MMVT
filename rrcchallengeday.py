@@ -352,11 +352,9 @@ def main():
 
         # Show the annotated image: press 'k' to confirm and begin stacking,
         # any other key to abort without moving the robot
-        cv2.imshow('Detected Cubes: Size sorted stack', cv_image)
-        key = cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-        if key != ord('k'):
+        cv2.imwrite('verify_stack_final.jpg', cv_image)
+        print("Saved verify_stack_final.jpg — check it, then type 'k' + Enter to stack:")
+        if input().strip() != 'k':
             print("Aborted by user")
             return
 
