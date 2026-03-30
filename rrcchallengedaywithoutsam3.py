@@ -308,7 +308,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
 
         place_cube(arm, stack_target)
 
-        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=1000, mvacc=1000)
+        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=1000, mvacc=750)
 
         z_top = target_z - cube['size_m'] / 2.0
 
