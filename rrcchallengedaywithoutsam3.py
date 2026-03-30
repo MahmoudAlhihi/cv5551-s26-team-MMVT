@@ -14,6 +14,7 @@ Pipeline:
 
 import cv2, numpy, time
 from xarm.wrapper import XArmAPI
+from scipy.spatial.transform import Rotation
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
@@ -37,6 +38,8 @@ PLACE_MARGIN_M = 0.005 # 3 mm gap between stacked faces
 # How far the arm retracts upward (mm) after each placement before moving
 # to the next cube's position, so it doesn't collide with the growing tower
 POST_PLACE_LIFT_MM = 40
+
+PRE_GRASP_HEIGHT = 80
 
 # Detection thresholds
 MIN_COMPONENT_AREA = 500 # pixels: blobs smaller than this are ignored
@@ -282,6 +285,22 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
         grasp_cube(arm, cube['t_robot'])
 
         target_z = z_top - PLACE_MARGIN_M - cube['size_m'] / 2.0
+
+        # stack_target = base_t.copy()
+        # stack_target[2, 3] = target_z
+
+        # # extract position — convert metres to mm for xArm API
+        # x = stack_target[0, 3] * 1000
+        # y = stack_target[1, 3] * 1000
+        # z = stack_target[2, 3] * 1000
+    
+        # # extract yaw from rotation matrix
+        # rot = Rotation.from_matrix(stack_target[:3, :3])
+        # r, p, yaw = rot.as_euler('xyz', degrees=False)
+    
+        # # move to pre-place height above target
+        # arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+        # time.sleep(0.5)
 
         stack_target = base_t.copy()
         stack_target[2, 3] = target_z

@@ -50,7 +50,7 @@ def grasp_cube(arm, cube_pose):
     time.sleep(2)
  
     # move to grasp height
-    arm.set_position(x, y, -z + 40, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z + 39, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.5)
  
     # close gripper
