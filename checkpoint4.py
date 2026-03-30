@@ -11,7 +11,7 @@ from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 # TODO
 STACK_HEIGHT = 0.025   # Determine a suitable height yourself (0.025)
 
-robot_ip = '192.168.1.166'
+robot_ip = '192.168.1.183'
 
 def main():
 

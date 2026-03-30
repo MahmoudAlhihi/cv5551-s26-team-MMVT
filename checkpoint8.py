@@ -11,7 +11,7 @@ from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 from checkpoint6 import get_sam3_mask
 
 cube_prompt = 'green cube'
-robot_ip = '192.168.1.155'
+robot_ip = '192.168.1.183'
 
 class CubePoseDetector:
     """

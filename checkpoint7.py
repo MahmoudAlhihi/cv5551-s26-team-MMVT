@@ -9,7 +9,7 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, GRIPPER_LENGTH
 from checkpoint2 import place_in_basket, BASKET_POSE
 
-robot_ip = '192.168.1.155'
+robot_ip = '192.168.1.183'
 
 def main():
 
@@ -17,7 +17,8 @@ def main():
     camera_intristnic = zed.camera_intrinsic
 
     # Initialize ZED Camera
-    cv_image, point_cloud = zed.get_synchronized_frame()
+    cv_image = zed.image
+    point_cloud = zed.point_cloud
 
     # Initialize Lite6 Robot
     arm = XArmAPI(robot_ip)
@@ -60,9 +61,9 @@ def main():
 
             # TODO
             # pick and place into basket
-            grasp_cube(arm, t_robot_cube)
-            time.sleep(0.5)
-            place_in_basket(arm, BASKET_POSE)
+        grasp_cube(arm, t_robot_cube)
+        time.sleep(0.5)
+        place_in_basket(arm, BASKET_POSE)
             
     
     finally:

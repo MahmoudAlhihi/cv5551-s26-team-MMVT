@@ -9,7 +9,7 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 from checkpoint4 import STACK_HEIGHT
 
-robot_ip = '192.168.1.155'
+robot_ip = '192.168.1.183'
 
 def main():
 
@@ -32,7 +32,8 @@ def main():
 
     try:
         # Get Observation
-        cv_image, point_cloud = zed.get_synchronized_frame()
+        cv_image = zed.image
+        point_cloud = zed.point_cloud
 
         # TODO
         t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
