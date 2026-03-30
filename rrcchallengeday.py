@@ -22,7 +22,7 @@ from checkpoint6 import  _sam3_processor
 from PIL import Image
 import torch
 
-ROBOT_IP = '192.168.1.155'
+ROBOT_IP = '192.168.1.183'
 
 # Phy cube size bounds (metres)
 # The rectangle footprint estimate is clamped to these limits to discard
@@ -33,7 +33,7 @@ MAX_CUBE_SIZE_M = 0.040 # 40 mm: largest cube in challenge
 # Stacking tuning
 # Extra clearance added between the top face of the cube below and the bottom
 # face of the cube being placed, to avoid a collision on descent
-PLACE_MARGIN_M = 0.003 # 3 mm gap between stacked faces
+PLACE_MARGIN_M = 0.002 # 3 mm gap between stacked faces
 
 # How far the arm retracts upward (mm) after each placement before moving
 # to the next cube's position, so it doesn't collide with the growing tower
@@ -42,7 +42,7 @@ POST_PLACE_LIFT_MM = 100
 # Detection thresholds
 MIN_COMPONENT_AREA = 500 # pixels: blobs smaller than this are ignored
 MIN_3D_POINTS = 50  # min finite point cloud points per blob
-TOP_SURFACE_SLICE_M = 0.005 # 5 mm: height of the top surface slice used
+TOP_SURFACE_SLICE_M = 0.002 # 5 mm: height of the top surface slice used
                             # for centre and orient est.
 
 # HSV colour ranges
@@ -85,21 +85,27 @@ def build_full_mask(image):
             masks = state['masks']
             scores = state['scores']
 
-            valid = scores > 0.15
+            valid = scores > 0.30
             if valid.any():
-                best_idx = scores[valid].argmax()
-                idx = torch.where(valid)[0][best_idx].item()
-                m = masks[idx, 0]
-                if m.shape[0] != h or m.shape[1] != w:
-                    m = torch.nn.functional.interpolate(
-                        m.unsqueeze(0).unsqueeze(0).float(),
-                        size=(h, w), mode='nearest',
-                    )[0, 0]
-                mask_dict[color] = (m > 0).cpu().numpy().astype(numpy.uint8)
-                print(f"  {color}: score={scores[idx]:.3f}, area={mask_dict[color].sum()}")
+                valid_indices = torch.where(valid)[0]
+                # Combine ALL valid masks for this color
+                combined = torch.zeros(h, w, dtype=torch.bool)
+                for idx in valid_indices:
+                    m = masks[idx.item(), 0]
+                    if m.shape[0] != h or m.shape[1] != w:
+                        m = torch.nn.functional.interpolate(
+                            m.unsqueeze(0).unsqueeze(0).float(),
+                            size=(h, w), mode='nearest',
+                        )[0, 0]
+                    combined = combined | (m > 0).cpu()
+                    print(f"  {color}: idx={idx.item()}, score={scores[idx]:.3f}")
+
+                mask_dict[color] = combined.numpy().astype(numpy.uint8)
+                print(f"  {color} total area: {mask_dict[color].sum()}")
             else:
                 mask_dict[color] = None
                 print(f"  {color}: no valid detections")
+
 
     # Combine all masks
     masks = [m for m in mask_dict.values() if m is not None]
@@ -287,7 +293,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
     base_t = cubes[0]['t_robot'].copy()
 
     # z_top starts at the top face of the base cube
-    z_top = base_t[2, 3] + cubes[0]['size_m'] / 2.0
+    z_top = base_t[2, 3] - cubes[0]['size_m'] / 2.0
 
     for i in range(1, n):
         cube = cubes[i]
@@ -298,7 +304,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
         grasp_cube(arm, cube['t_robot'])
 
         # Place it so its centre sits at target_z above the current stack top
-        target_z = z_top + PLACE_MARGIN_M + cube['size_m'] / 2.0
+        target_z = z_top - PLACE_MARGIN_M - cube['size_m'] / 2.0
 
         stack_target = base_t.copy()
         stack_target[2, 3] = target_z # only Z changes per level
@@ -310,7 +316,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
         arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True)
 
         # Advance z_top to the new top face of the stack
-        z_top = target_z + cube['size_m'] / 2.0
+        z_top = target_z - cube['size_m'] / 2.0
 
     print("\nAll cubes stacked.")
 
@@ -328,7 +334,8 @@ def main():
     time.sleep(0.5)
 
     try:
-        cv_image, point_cloud = zed.get_synchronized_frame()
+        cv_image = zed.image
+        point_cloud = zed.point_cloud
         t_cam_robot = get_transform_camera_robot(cv_image, zed.camera_intrinsic)
         if t_cam_robot is None:
             return
