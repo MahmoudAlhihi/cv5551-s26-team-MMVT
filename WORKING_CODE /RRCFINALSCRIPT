@@ -5,6 +5,9 @@ from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
+STACK_BASE = [229.4, -296.4, 23.2]
+PLACE_MARGIN_M = 0.001
+
 def get_synchronized_frame(self):
      with self._lock:
          image = self._image.copy() if self._image is not None else None
@@ -13,7 +16,7 @@ def get_synchronized_frame(self):
 
 
 CUBE_SIZE = 0.025 # 25mm
-robot_ip = '192.168.1.155'
+robot_ip = '192.168.1.183'
 
 def get_all_cube_poses(observation, camera_intrinsic, camera_pose):
     """
@@ -129,25 +132,37 @@ def main():
         if cv2.waitKey(0) != ord('k'): return
 
         # --- INFINITE STACKING ---
-        # We'll use the first cube's location as the base of the stack
+        # Build base transform at fixed stacking location
         base_t_robot = cube_results[0][0].copy()
-        
-        for i, (t_robot_cube, _) in enumerate(cube_results):
+        base_t_robot[0, 3] = STACK_BASE[0] / 1000.0
+        base_t_robot[1, 3] = STACK_BASE[1] / 1000.0
+        base_t_robot[2, 3] = STACK_BASE[2] / 1000.0
+
+        # Move first cube to base position
+        print("Stacking cube 1 (BASE)...")
+        grasp_cube(arm, cube_results[0][0])
+        place_cube(arm, base_t_robot)
+
+        # z_top starts at top face of base cube
+        z_top = base_t_robot[2, 3] + CUBE_SIZE / 2.0
+
+        for i in range(1, len(cube_results)):
+            t_robot_cube, _ = cube_results[i]
             print(f"Stacking cube {i+1}...")
-            
-            # Grasp from its detected position
+
             grasp_cube(arm, t_robot_cube)
-            
-            # Calculate stack target: base XY, but Z increases by CUBE_SIZE * i
+
+            target_z = z_top + PLACE_MARGIN_M + CUBE_SIZE / 2.0
+
             stack_target = base_t_robot.copy()
-            # If Z+ is UP in your robot frame, use +=
-            # If Z- is UP (as in some cam-robot frames), use -=
-            stack_target[2, 3] += (i * CUBE_SIZE) 
-            
+            stack_target[2, 3] = target_z
+            stack_target[:3, :3] = base_t_robot[:3, :3]
+
             place_cube(arm, stack_target)
-            
-            # Move slightly up/away after placing to avoid knocking the stack
-            arm.set_position(z=100, relative=True, wait=True)
+
+            arm.set_position(z=40, relative=True, wait=True, speed=1000, mvacc=500)
+
+            z_top = target_z + CUBE_SIZE / 2.0
 
         arm.move_gohome(wait=True)
 
