@@ -146,7 +146,7 @@ def stack_cubes(arm, cube_results):
 
         place_cube(arm, stack_target)
 
-        arm.set_position(z=40, relative=True, wait=True, speed=1000, mvacc=500)
+        arm.set_position(z=22.5, relative=True, wait=True, speed=1000, mvacc=500)
 
         z_top = target_z - CUBE_SIZE / 2.0   # advance top face for next cube
 
@@ -183,11 +183,11 @@ def main():
         for _, t_cam in cube_results:
             draw_pose_axes(cv_image, zed.camera_intrinsic, t_cam)
         cv2.imshow('Detected Cubes', cv_image)
-        if cv2.waitKey(0) != ord('k'):
-            return
+        # if cv2.waitKey(0) != ord('k'):
+        #     return
 
         stack_cubes(arm, cube_results)
-        arm.move_gohome(wait=True)
+        arm.move_gohome(wait=True, speed=600, mvacc=500)
 
     finally:
         arm.disconnect()

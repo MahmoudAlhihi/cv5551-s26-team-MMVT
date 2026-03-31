@@ -42,15 +42,15 @@ def grasp_cube(arm, cube_pose):
  
     # open gripper before approaching
     arm.open_lite6_gripper()
-    time.sleep(0.1)
+    # time.sleep(0.05)
     #arm.stop_lite6_gripper()
  
     # move to pre grasp height above the cube
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    time.sleep(0.4)
  
     # move to grasp height
-    arm.set_position(x, y, -z + 40, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z + 40, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
     time.sleep(0.1)
  
     # close gripper
@@ -59,8 +59,8 @@ def grasp_cube(arm, cube_pose):
     #arm.stop_lite6_gripper()
  
     # lift back to safe height
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.1)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    # time.sleep(0.1)
 
 def place_cube(arm, cube_pose):
     """
@@ -85,21 +85,21 @@ def place_cube(arm, cube_pose):
     r, p, yaw = rot.as_euler('xyz', degrees=False)
  
     # move to pre-place height above target
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
     time.sleep(0.1)
  
     # descend to place height
-    arm.set_position(x, y, -z + 42, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z + 42, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
     time.sleep(0.1)
  
     # open gripper to release
     arm.open_lite6_gripper()
-    time.sleep(0.1)
+    # time.sleep(0.1)
     #arm.stop_lite6_gripper()
  
     # lift back to safe height
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.1)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    # time.sleep(0.1)
 
 def get_transform_cube(observation, camera_intrinsic, camera_pose):
     """
@@ -183,7 +183,7 @@ def main():
     arm.set_mode(0)
     arm.set_state(0)
     arm.move_gohome(wait=True)
-    time.sleep(0.5)
+    # time.sleep(0.5)
 
     try:
         # Get Observation
@@ -218,8 +218,8 @@ def main():
     
     finally:
         # Close Lite6 Robot
-        arm.move_gohome(wait=True)
-        time.sleep(0.5)
+        arm.move_gohome(wait=True, speed=600, mvacc=500)
+        # time.sleep(0.5)
         arm.disconnect()
 
         # Close ZED Camera
