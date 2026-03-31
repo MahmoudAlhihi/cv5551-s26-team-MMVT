@@ -5,10 +5,11 @@ from xarm.wrapper import XArmAPI
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
+from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 from checkpoint4 import STACK_HEIGHT
 
-robot_ip = ''
+robot_ip = '192.168.1.155'
 
 def main():
 
@@ -31,10 +32,47 @@ def main():
 
     try:
         # Get Observation
-        cv_image = zed.image
-        point_cloud = zed.point_cloud
+        cv_image, point_cloud = zed.get_synchronized_frame()
 
         # TODO
+        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        if t_cam_robot is None:
+            print('Failed to compute cam-robot transform')
+            return
+ 
+        cube_pose_detector.camera_pose = t_cam_robot
+ 
+        # detect red and green cubes
+        redr = cube_pose_detector.get_transforms([cv_image, point_cloud], 'red cube')
+        greenr = cube_pose_detector.get_transforms([cv_image, point_cloud], 'green cube')
+ 
+        if redr is None or greenr is None:
+            print('Could not locate both cubes for stacking')
+            return
+ 
+        t_robot_red, t_cam_red = redr
+        t_robot_green, t_cam_green = greenr
+ 
+        # visualization
+        draw_pose_axes(cv_image, camera_intrinsic, t_cam_red)
+        draw_pose_axes(cv_image, camera_intrinsic, t_cam_green)
+        cv2.imshow('Checkpoint 9', cv_image)
+        print("Press 'k' to execute stacking")
+        if cv2.waitKey(0) != ord('k'):
+            return
+        cv2.destroyAllWindows()
+ 
+        # pick up the red cube
+        grasp_cube(arm, t_robot_red)
+        time.sleep(0.5)
+ 
+        # compute stack pose: on top of green cube
+        t_robot_stack = t_robot_green.copy()
+        t_robot_stack[2, 3] -= STACK_HEIGHT
+        t_robot_stack[:3, :3] = t_robot_green[:3, :3]
+ 
+        # place red cube on green cube
+        place_cube(arm, t_robot_stack)
     
     finally:
         # Close Lite6 Robot
