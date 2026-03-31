@@ -7,222 +7,150 @@ from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 
-GRIPPER_LENGTH = 0.067 * 1000
+GRIPPER_LENGTH  = 0.067 * 1000
 CUBE_TAG_FAMILY = 'tag36h11'
-CUBE_TAG_ID = 4
-CUBE_TAG_SIZE = 0.0206
+CUBE_TAG_ID     = 4
+CUBE_TAG_SIZE   = 0.0206
 
 robot_ip = '192.168.1.166'
 
-# safe height (mm) above the cube to move to before coming down to grasp/place
-PRE_GRASP_HEIGHT = 120
+# Reduced from 120 → 60 mm: less vertical travel per cycle while still
+# clearing the tallest expected stack during transit
+PRE_GRASP_HEIGHT = 60
+
+# Fast transit between waypoints
+TRANSIT_SPEED  = 900    # mm/s
+TRANSIT_ACCEL  = 2500   # mm/s²
+# Slow, precise descent / ascent onto the cube
+DESCEND_SPEED  = 350    # mm/s
+DESCEND_ACCEL  = 1000   # mm/s²
+
 
 def grasp_cube_large(arm, cube_pose, size_m):
     """
-    Execute a pick sequence to grasp a cube at a specified pose.
+    Pick a large cube (size_m > 20 mm) at cube_pose (4×4, translations in metres).
 
-    Parameters
-    ----------
-    arm : xarm.wrapper.XArmAPI
-        The initialized XArm API object controlling the Lite6 robot.
-    cube_pose : numpy.ndarray
-        A 4x4 transformation matrix representing the cube's pose in the robot base frame.
-        All translational units in this matrix are in meters.
+    open_lite6_gripper() is non-blocking — it fires the command and returns
+    immediately, so the gripper opens during the transit to PRE_GRASP_HEIGHT.
     """
-    # For cube size > 20mm → Z margin = +40
-    x = cube_pose[0, 3] * 1000
-    y = cube_pose[1, 3] * 1000
+    x        = cube_pose[0, 3] * 1000
+    y        = cube_pose[1, 3] * 1000
     center_z = cube_pose[2, 3]
-
-    rot = Rotation.from_matrix(cube_pose[:3, :3])
+    rot      = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
 
-    #correct top surface
     top_z = center_z + size_m / 2.0
-    z_mm = top_z * 1000
+    z_mm  = top_z * 1000
 
-    arm.open_lite6_gripper()
-    time.sleep(0.1)
-    #arm.stop_lite6_gripper()
-
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
-
-    # LARGE cube
-    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
-
+    arm.open_lite6_gripper()                                   # async — opens in transit
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
+    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
     arm.close_lite6_gripper()
-    time.sleep(0.2)
-    #arm.stop_lite6_gripper()
-
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.1)
-
+    time.sleep(0.15)                                           # minimum for jaws to seat
+    arm.stop_lite6_gripper()                                   # lock torque — prevents drift
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
     print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
 
 
 def grasp_cube_small(arm, cube_pose, size_m):
     """
-    Execute a pick sequence to grasp a cube at a specified pose.
-
-    Parameters
-    ----------
-    arm : xarm.wrapper.XArmAPI
-        The initialized XArm API object controlling the Lite6 robot.
-    cube_pose : numpy.ndarray
-        A 4x4 transformation matrix representing the cube's pose in the robot base frame.
-        All translational units in this matrix are in meters.
+    Pick a small cube (size_m ≤ 20 mm) at cube_pose (4×4, translations in metres).
     """
-    # For cube size ≤ 20mm → Z margin = +35
-    x = cube_pose[0, 3] * 1000
-    y = cube_pose[1, 3] * 1000
+    x        = cube_pose[0, 3] * 1000
+    y        = cube_pose[1, 3] * 1000
     center_z = cube_pose[2, 3]
-
-    rot = Rotation.from_matrix(cube_pose[:3, :3])
+    rot      = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
 
-    #correct top surface
     top_z = center_z + size_m / 2.0
-    z_mm = top_z * 1000
+    z_mm  = top_z * 1000
 
-    arm.open_lite6_gripper()
-    time.sleep(0.1)
-    #arm.stop_lite6_gripper()
-
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
-
-    # SMALL cube
-    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
-
+    arm.open_lite6_gripper()                                   # async — opens in transit
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
+    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
     arm.close_lite6_gripper()
-    time.sleep(0.2)
-    #arm.stop_lite6_gripper()
-
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.1)
-
+    time.sleep(0.15)                                           # minimum for jaws to seat
+    arm.stop_lite6_gripper()                                   # lock torque — prevents drift
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
     print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
 
 
 def place_cube(arm, cube_pose, size_m):
     """
-    Execute a place sequence to release a cube at a specified pose.
-
-    Parameters
-    ----------
-    arm : xarm.wrapper.XArmAPI
-        The initialized XArm API object controlling the Lite6 robot.
-    cube_pose : numpy.ndarray
-        A 4x4 transformation matrix representing the target placement pose in the robot base frame.
-        All translational units in this matrix are in meters.
+    Release a cube at cube_pose (4×4, translations in metres).
+    Uses the same descent offset as the grasp functions for consistent alignment.
     """
-    # TODO
-    # extract position — convert metres to mm for xArm API
-    x = cube_pose[0, 3] * 1000
-    y = cube_pose[1, 3] * 1000
-    z = cube_pose[2, 3] * 1000
- 
-    # extract yaw from rotation matrix
+    x   = cube_pose[0, 3] * 1000
+    y   = cube_pose[1, 3] * 1000
+    z   = cube_pose[2, 3] * 1000
     rot = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
 
-    place_z_offset = size_m * 1000 * 0.2 + 44  # matches grasp_cube_small
- 
-    # move to pre-place height above target
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.1)
- 
-    # descend to place height
-    arm.set_position(x, y, -z + place_z_offset, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.1)
- 
-    # open gripper to release
+    place_z_offset = size_m * 1000 * 0.2 + 44   # mirrors grasp descent offset
+
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
+    arm.set_position(x, y, -z + place_z_offset, r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
     arm.open_lite6_gripper()
-    time.sleep(0.1)
+    time.sleep(0.08)                                           # minimum for jaws to clear cube
     arm.stop_lite6_gripper()
- 
-    # lift back to safe height
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.1)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
+                     is_radian=True, wait=True,
+                     speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
+
 
 def get_transform_cube(observation, camera_intrinsic, camera_pose):
     """
-    Calculate the transformation matrix for the cube relative to the robot base frame, 
-    as well as relative to the camera frame.
-
-    This function uses visual fiducial detection to find the cube's pose in the camera's view, 
-    then transforms that pose into the robot's global coordinate system. 
-
-    Parameters
-    ----------
-    observation : numpy.ndarray
-        The input image from the camera. Can be a color (BGRA/BGR) or grayscale image.
-    camera_intrinsic : numpy.ndarray
-        The 3x3 intrinsic camera matrix.
-    camera_pose : numpy.ndarray
-        A 4x4 transformation matrix representing the camera's pose in the robot base frame (t_cam_robot).
-        All translations are in meters.
-
-    Returns
-    -------
-    tuple or None
-        If successful, returns a tuple (t_robot_cube, t_cam_cube) where both 
-        are 4x4 transformation matrices with translations in meters. 
-        If no cube tag is detected, returns None.
+    Detect the cube AprilTag and return (t_robot_cube, t_cam_cube).
+    Returns None if the tag is not found.
     """
-    # TODO
     if len(observation.shape) > 2 and observation.shape[2] == 4:
         gray = cv2.cvtColor(observation, cv2.COLOR_BGRA2GRAY)
     elif len(observation.shape) > 2:
         gray = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
     else:
         gray = observation
- 
-    # detect AprilTags with pose estimation
+
     detector = Detector(families=CUBE_TAG_FAMILY)
     fx = camera_intrinsic[0, 0]
     fy = camera_intrinsic[1, 1]
     cx = camera_intrinsic[0, 2]
     cy = camera_intrinsic[1, 2]
- 
-    tags = detector.detect(
-        gray,
-        estimate_tag_pose=True,
-        camera_params=(fx, fy, cx, cy),
-        tag_size=CUBE_TAG_SIZE
-    )
- 
-    # find the cube tag
-    cube_tag = None
-    for tag in tags:
-        if tag.tag_id == CUBE_TAG_ID:
-            cube_tag = tag
-            break
- 
+
+    tags = detector.detect(gray, estimate_tag_pose=True,
+                           camera_params=(fx, fy, cx, cy),
+                           tag_size=CUBE_TAG_SIZE)
+
+    cube_tag = next((t for t in tags if t.tag_id == CUBE_TAG_ID), None)
     if cube_tag is None:
         print(f'Cube tag (ID {CUBE_TAG_ID}) not detected.')
         return None
- 
-    # build camera-to-cube transform
-    t_cam_cube = numpy.eye(4)
-    t_cam_cube[:3, :3] = cube_tag.pose_R
-    t_cam_cube[:3, 3]  = cube_tag.pose_t.flatten()
- 
-    # transform into robot base frame
+
+    t_cam_cube          = numpy.eye(4)
+    t_cam_cube[:3, :3]  = cube_tag.pose_R
+    t_cam_cube[:3,  3]  = cube_tag.pose_t.flatten()
+
     t_robot_cube = numpy.linalg.inv(camera_pose) @ t_cam_cube
- 
     return t_robot_cube, t_cam_cube
 
+
 def main():
-
-    # Initialize ZED Camera
     zed = ZedCamera()
-    camera_intrinsic = zed.camera_intrinsic
-
-    # Initialize Lite6 Robot
     arm = XArmAPI(robot_ip)
     arm.connect()
     arm.motion_enable(enable=True)
@@ -230,47 +158,34 @@ def main():
     arm.set_mode(0)
     arm.set_state(0)
     arm.move_gohome(wait=True)
-    time.sleep(0.5)
 
     try:
-        # Get Observation
-        cv_image = zed.image
-
-        # Get Transformation
-        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+        cv_image        = zed.image
+        t_cam_robot     = get_transform_camera_robot(cv_image, zed.camera_intrinsic)
         if t_cam_robot is None:
             return
-        
-        t_cam_cube = None
-        # TODO
-        result = get_transform_cube(cv_image, camera_intrinsic, t_cam_robot)
+
+        result = get_transform_cube(cv_image, zed.camera_intrinsic, t_cam_robot)
         if result is None:
             print('Cube not found.')
             return
         t_robot_cube, t_cam_cube = result
-        
-        # Visualization
-        draw_pose_axes(cv_image, camera_intrinsic, t_cam_cube)
+
+        draw_pose_axes(cv_image, zed.camera_intrinsic, t_cam_cube)
         cv2.namedWindow('Verifying Cube Pose', cv2.WINDOW_NORMAL)
         cv2.resizeWindow('Verifying Cube Pose', 1280, 720)
         cv2.imshow('Verifying Cube Pose', cv_image)
-        key = cv2.waitKey(0)
 
-        if key == ord('k'):
+        if cv2.waitKey(0) == ord('k'):
             cv2.destroyAllWindows()
+            grasp_cube_large(arm, t_robot_cube, CUBE_TAG_SIZE)
+            place_cube(arm, t_robot_cube, CUBE_TAG_SIZE)
 
-            # TODO
-            grasp_cube(arm, t_robot_cube)
-            place_cube(arm, t_robot_cube)
-    
     finally:
-        # Close Lite6 Robot
         arm.move_gohome(wait=True)
-        time.sleep(0.5)
         arm.disconnect()
-
-        # Close ZED Camera
         zed.close()
+
 
 if __name__ == "__main__":
     main()
