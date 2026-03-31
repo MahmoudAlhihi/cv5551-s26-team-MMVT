@@ -1,13 +1,13 @@
-from checkpoint6 import get_transform_cube
+from checkpoints.checkpoint6 import get_transform_cube
 
 import cv2, numpy, time
 from xarm.wrapper import XArmAPI
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
-from checkpoint0 import get_transform_camera_robot
-from checkpoint1 import grasp_cube, GRIPPER_LENGTH
-from checkpoint2 import place_in_basket, BASKET_POSE
+from checkpoints.checkpoint0 import get_transform_camera_robot
+from checkpoints.checkpoint1 import grasp_cube, GRIPPER_LENGTH
+from checkpoints.checkpoint2 import place_in_basket, BASKET_POSE
 
 robot_ip = '192.168.1.155'
 

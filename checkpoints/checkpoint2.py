@@ -3,8 +3,8 @@ from xarm.wrapper import XArmAPI
 import math
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
-from checkpoint0 import get_transform_camera_robot
-from checkpoint1 import grasp_cube, get_transform_cube, GRIPPER_LENGTH
+from checkpoints.checkpoint0 import get_transform_camera_robot
+from checkpoints.checkpoint1 import grasp_cube, get_transform_cube, GRIPPER_LENGTH
 
 # TODO
 BASKET_POSE = [229.4, -296.4, 23.2, 178.2, -3.8, 4.1 ] # Measure it using the robot's free drive mode.

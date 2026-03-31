@@ -4,8 +4,8 @@ from xarm.wrapper import XArmAPI
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
-from checkpoint0 import get_transform_camera_robot
-from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH, CUBE_TAG_FAMILY, CUBE_TAG_ID, CUBE_TAG_SIZE
+from checkpoints.checkpoint0 import get_transform_camera_robot
+from checkpoints.checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH, CUBE_TAG_FAMILY, CUBE_TAG_ID, CUBE_TAG_SIZE
 
 cube_prompt = 'red cube'
 robot_ip = '192.168.1.166'

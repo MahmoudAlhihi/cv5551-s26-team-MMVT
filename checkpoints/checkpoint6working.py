@@ -1,4 +1,3 @@
-
 import cv2, numpy, time, torch
 import open3d as o3d
 from scipy.spatial.transform import Rotation
@@ -6,8 +5,8 @@ from xarm.wrapper import XArmAPI
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
-from checkpoint0 import get_transform_camera_robot
-from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
+from checkpoints.checkpoint0 import get_transform_camera_robot
+from checkpoints.checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 CUBE_SIZE = 0.025
 
@@ -56,9 +55,6 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     kernel= numpy.ones((5,5), numpy.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    # Shrink the mask slightly to avoid edge noise
-    kernel = numpy.ones((3,3), numpy.uint8)
-    mask = cv2.erode(mask, kernel, iterations=1)
     cv2.imshow('Red Mask', mask)
     cv2.waitKey(0)
 
@@ -77,50 +73,42 @@ def get_transform_cube(observation, camera_intrinsic, camera_pose):
     # using Open3D for Oriented Bounding Box
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(cpoints)
-
-    # interpret the camera pose
-    T_robot_cam = camera_pose  
-    T_cam_robot = numpy.linalg.inv(T_robot_cam) # Use this to move points to Robot
     
     # get center and rotation from the geometry
+    obb = pcd.get_oriented_bounding_box()
     cpoints_m = cpoints / 1000.0
+
+    T_cam_robot = camera_pose
+    T_robot_cam = numpy.linalg.inv(T_cam_robot)
+
     ones = numpy.ones((len(cpoints_m), 1))
-    cpoints_robot = (T_cam_robot @ numpy.hstack([cpoints_m, ones]).T).T[:, :3]
+    cpoints_robot = (T_robot_cam @ numpy.hstack([cpoints_m, ones]).T).T[:, :3]
 
-    # find the top Surface
-    z_max = numpy.max(cpoints_robot[:, 2])
-    top_mask = cpoints_robot[:, 2] > (z_max - 0.005) 
-    top_points = cpoints_robot[top_mask]
+    centroid_robot = numpy.mean(cpoints_robot, axis=0)
 
-    if len(top_points) < 10:
-        return None
+    pts_2d_robot = cpoints_robot[:, :2].astype(numpy.float32)
 
-    # calc XY Center and yaw
-    pts_2d_top = top_points[:, :2].astype(numpy.float32)
-    rect = cv2.minAreaRect(pts_2d_top)
+    # fit oriented rectangle in robot XY plane
+    rect = cv2.minAreaRect(pts_2d_robot)
     (center_xy, (w, h), angle_deg) = rect
 
-    # handle orientation (stand the long/short edge)
+    # cv2 angle convention is weird; convert to cube edge yaw
     if w < h:
-        angle_deg += 90.0
+        angle_deg = angle_deg + 90.0
+
     yaw_robot = numpy.deg2rad(angle_deg)
 
-    # 4calc True Geometric Center
-    # the center Z is the top surface Z minus half the cube height
-    center_z = z_max - (CUBE_SIZE / 2.0)
-
-    # build transform matrix
     Rz_robot = numpy.array([
         [numpy.cos(yaw_robot), -numpy.sin(yaw_robot), 0],
         [numpy.sin(yaw_robot),  numpy.cos(yaw_robot), 0],
         [0,                     0,                    1]
-    ]) @ numpy.diag([1, -1, -1]) # maintain gripper down orientation
+    ]) @ numpy.diag([1, -1, -1])
 
     t_robot_cube = numpy.eye(4)
     t_robot_cube[:3, :3] = Rz_robot
-    t_robot_cube[:3, 3] = [center_xy[0], center_xy[1], center_z]
+    t_robot_cube[:3, 3] = centroid_robot
 
-    t_cam_cube = T_robot_cam @ t_robot_cube
+    t_cam_cube = T_cam_robot @ t_robot_cube
 
     return t_robot_cube, t_cam_cube
 
@@ -142,7 +130,8 @@ def main():
 
     try:
         # Get Observation
-        cv_image, point_cloud = zed.get_synchronized_frame()
+        cv_image = zed.image
+        point_cloud = zed.point_cloud
 
         t_cam_cube = None
         # TODO
@@ -190,3 +179,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

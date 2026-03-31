@@ -17,8 +17,8 @@ from xarm.wrapper import XArmAPI
 from scipy.spatial.transform import Rotation
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
-from checkpoint0 import get_transform_camera_robot
-from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
+from checkpoints.checkpoint0 import get_transform_camera_robot
+from checkpoints.checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 ROBOT_IP = '192.168.1.183'
 

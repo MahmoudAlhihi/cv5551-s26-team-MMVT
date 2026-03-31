@@ -1,12 +1,12 @@
-from checkpoint3 import CubePoseDetector
+from checkpoints.checkpoint3 import CubePoseDetector
 
 import cv2, time
 from xarm.wrapper import XArmAPI
 
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
-from checkpoint0 import get_transform_camera_robot
-from checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
+from checkpoints.checkpoint0 import get_transform_camera_robot
+from checkpoints.checkpoint1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 # TODO
 STACK_HEIGHT = 0.025   # Determine a suitable height yourself (0.025)
