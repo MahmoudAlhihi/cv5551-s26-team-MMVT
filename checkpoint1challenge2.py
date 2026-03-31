@@ -16,76 +16,60 @@ robot_ip = '192.168.1.166'
 
 # Reduced from 120 → 60 mm: less vertical travel per cycle while still
 # clearing the tallest expected stack during transit
-PRE_GRASP_HEIGHT = 60
+PRE_GRASP_HEIGHT = 100
 
 # Fast transit between waypoints
-TRANSIT_SPEED  = 900    # mm/s
-TRANSIT_ACCEL  = 2500   # mm/s²
+TRANSIT_SPEED  = 600    # mm/s
+TRANSIT_ACCEL  = 500   # mm/s²
 # Slow, precise descent / ascent onto the cube
-DESCEND_SPEED  = 350    # mm/s
-DESCEND_ACCEL  = 1000   # mm/s²
+DESCEND_SPEED  = 600    # mm/s
+DESCEND_ACCEL  = 500   # mm/s²
 
 
 def grasp_cube_large(arm, cube_pose, size_m):
-    """
-    Pick a large cube (size_m > 20 mm) at cube_pose (4×4, translations in metres).
-
-    open_lite6_gripper() is non-blocking — it fires the command and returns
-    immediately, so the gripper opens during the transit to PRE_GRASP_HEIGHT.
-    """
-    x        = cube_pose[0, 3] * 1000
-    y        = cube_pose[1, 3] * 1000
-    center_z = cube_pose[2, 3]
-    rot      = Rotation.from_matrix(cube_pose[:3, :3])
+    x         = cube_pose[0, 3] * 1000
+    y         = cube_pose[1, 3] * 1000
+    z         = cube_pose[2, 3] * 1000   # center z in mm — same as working checkpoint1
+    rot       = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
 
-    top_z = center_z + size_m / 2.0
-    z_mm  = top_z * 1000
-
-    arm.open_lite6_gripper()                                   # async — opens in transit
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+    arm.open_lite6_gripper()
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
                      speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
-    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw,
+    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 44), r, p, yaw,
                      is_radian=True, wait=True,
                      speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
     arm.close_lite6_gripper()
-    time.sleep(0.15)                                           # minimum for jaws to seat
-    arm.stop_lite6_gripper()                                   # lock torque — prevents drift
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+    time.sleep(0.15)
+    #arm.stop_lite6_gripper()
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
                      speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
-    print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
+    print(f"size={size_m*1000:.1f}mm | center_z={z:.1f}mm")
 
 
 def grasp_cube_small(arm, cube_pose, size_m):
-    """
-    Pick a small cube (size_m ≤ 20 mm) at cube_pose (4×4, translations in metres).
-    """
-    x        = cube_pose[0, 3] * 1000
-    y        = cube_pose[1, 3] * 1000
-    center_z = cube_pose[2, 3]
-    rot      = Rotation.from_matrix(cube_pose[:3, :3])
+    x         = cube_pose[0, 3] * 1000
+    y         = cube_pose[1, 3] * 1000
+    z         = cube_pose[2, 3] * 1000   # center z in mm — same as working checkpoint1
+    rot       = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
 
-    top_z = center_z + size_m / 2.0
-    z_mm  = top_z * 1000
-
-    arm.open_lite6_gripper()                                   # async — opens in transit
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+    arm.open_lite6_gripper()
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
                      speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
-    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw,
+    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 34), r, p, yaw,
                      is_radian=True, wait=True,
                      speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
     arm.close_lite6_gripper()
-    time.sleep(0.15)                                           # minimum for jaws to seat
-    arm.stop_lite6_gripper()                                   # lock torque — prevents drift
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+    time.sleep(0.15)
+    #arm.stop_lite6_gripper()
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
                      speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
-    print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
-
+    print(f"size={size_m*1000:.1f}mm | center_z={z:.1f}mm")
 
 def place_cube(arm, cube_pose, size_m):
     """
