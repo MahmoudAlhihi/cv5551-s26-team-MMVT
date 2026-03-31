@@ -15,7 +15,7 @@ CUBE_TAG_SIZE = 0.0206
 robot_ip = '192.168.1.166'
 
 # safe height (mm) above the cube to move to before coming down to grasp/place
-PRE_GRASP_HEIGHT = 80
+PRE_GRASP_HEIGHT = 60
 
 
 def grasp_cube(arm, cube_pose):
@@ -42,25 +42,25 @@ def grasp_cube(arm, cube_pose):
  
     # open gripper before approaching
     arm.open_lite6_gripper()
-    time.sleep(0.5)
-    arm.stop_lite6_gripper()
+    time.sleep(0.1)
+    #arm.stop_lite6_gripper()
  
     # move to pre grasp height above the cube
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(2)
+    time.sleep(0.5)
  
     # move to grasp height
     arm.set_position(x, y, -z + 40, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
+    time.sleep(0.1)
  
     # close gripper
     arm.close_lite6_gripper()
-    time.sleep(1)
-    arm.stop_lite6_gripper()
+    time.sleep(0.2)
+    #arm.stop_lite6_gripper()
  
     # lift back to safe height
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
+    time.sleep(0.1)
 
 def place_cube(arm, cube_pose):
     """
@@ -86,20 +86,20 @@ def place_cube(arm, cube_pose):
  
     # move to pre-place height above target
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
+    time.sleep(0.1)
  
     # descend to place height
-    arm.set_position(x, y, -z + 37, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
+    arm.set_position(x, y, -z + 42, r, p, yaw, is_radian=True, wait=True)
+    time.sleep(0.1)
  
     # open gripper to release
     arm.open_lite6_gripper()
-    time.sleep(0.5)
-    arm.stop_lite6_gripper()
+    time.sleep(0.1)
+    #arm.stop_lite6_gripper()
  
     # lift back to safe height
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
+    time.sleep(0.1)
 
 def get_transform_cube(observation, camera_intrinsic, camera_pose):
     """

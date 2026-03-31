@@ -15,7 +15,7 @@ CUBE_TAG_SIZE = 0.0206
 robot_ip = '192.168.1.166'
 
 # safe height (mm) above the cube to move to before coming down to grasp/place
-PRE_GRASP_HEIGHT = 80
+PRE_GRASP_HEIGHT = 120
 
 def grasp_cube_large(arm, cube_pose, size_m):
     """
@@ -43,20 +43,20 @@ def grasp_cube_large(arm, cube_pose, size_m):
 
     arm.open_lite6_gripper()
     time.sleep(0.1)
-    arm.stop_lite6_gripper()
+    #arm.stop_lite6_gripper()
 
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.5)
 
     # LARGE cube
-    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 30), r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.5)
 
     arm.close_lite6_gripper()
     time.sleep(0.2)
-    arm.stop_lite6_gripper()
+    #arm.stop_lite6_gripper()
 
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.1)
 
     print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
@@ -88,26 +88,26 @@ def grasp_cube_small(arm, cube_pose, size_m):
 
     arm.open_lite6_gripper()
     time.sleep(0.1)
-    arm.stop_lite6_gripper()
+    #arm.stop_lite6_gripper()
 
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.5)
 
     # SMALL cube
-    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 30), r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.5)
 
     arm.close_lite6_gripper()
     time.sleep(0.2)
-    arm.stop_lite6_gripper()
+    #arm.stop_lite6_gripper()
 
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.1)
 
     print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
 
 
-def place_cube(arm, cube_pose):
+def place_cube(arm, cube_pose, size_m):
     """
     Execute a place sequence to release a cube at a specified pose.
 
@@ -128,13 +128,15 @@ def place_cube(arm, cube_pose):
     # extract yaw from rotation matrix
     rot = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
+
+    place_z_offset = size_m * 1000 * 0.2 + 44  # matches grasp_cube_small
  
     # move to pre-place height above target
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.1)
  
     # descend to place height
-    arm.set_position(x, y, -z + 37, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z + place_z_offset, r, p, yaw, is_radian=True, wait=True)
     time.sleep(0.1)
  
     # open gripper to release

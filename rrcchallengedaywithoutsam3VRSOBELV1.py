@@ -19,7 +19,7 @@ from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1challenge import grasp_cube_large, grasp_cube_small, place_cube, GRIPPER_LENGTH
-import numpy as np
+import numpy 
 
 ROBOT_IP = '192.168.1.183'
 
@@ -40,7 +40,7 @@ SIZE_EPS = 0.003  # 3 mm tolerance for size-based decisions like grasping strate
 # Stacking tuning
 # Extra clearance added between the top face of the cube below and the bottom
 # face of the cube being placed, to avoid a collision on descent
-PLACE_MARGIN_M = 0.003 # 3 mm gap between stacked faces
+PLACE_MARGIN_M = 0.008 # 3 mm gap between stacked faces
 
 # How far the arm retracts upward (mm) after each placement before moving
 # to the next cube's position, so it doesn't collide with the growing tower
@@ -335,7 +335,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
         grasp_cube_large(arm, cubes[0]['t_robot'], cubes[0]['size_m'])
     else:
         grasp_cube_small(arm, cubes[0]['t_robot'], cubes[0]['size_m'])
-    place_cube(arm, base_t)
+    place_cube(arm, base_t, cubes[0]['size_m'])
 
     # z_top starts at the top face of the base cube
     z_top = base_t[2, 3] - cubes[0]['size_m'] / 2.0
@@ -372,7 +372,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
         stack_target[2, 3] = target_z
         stack_target[:3, :3] = base_t[:3, :3]
 
-        place_cube(arm, stack_target)
+        place_cube(arm, stack_target, cube['size_m'])
 
         arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=750, mvacc=750)
 
