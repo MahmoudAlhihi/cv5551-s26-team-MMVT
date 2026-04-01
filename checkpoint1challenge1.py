@@ -50,7 +50,7 @@ def grasp_cube(arm, cube_pose):
     time.sleep(0.4)
  
     # move to grasp height
-    arm.set_position(x, y, -z + 40, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    arm.set_position(x, y, -z + 38, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
     time.sleep(0.1)
  
     # close gripper
@@ -89,7 +89,7 @@ def place_cube(arm, cube_pose):
     time.sleep(0.1)
  
     # descend to place height
-    arm.set_position(x, y, -z + 42, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    arm.set_position(x, y, -z + 41, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
     time.sleep(0.1)
  
     # open gripper to release
