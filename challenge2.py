@@ -40,7 +40,7 @@ SIZE_EPS = 0.003  # 3 mm tolerance for size-based decisions like grasping strate
 # Stacking tuning
 # Extra clearance added between the top face of the cube below and the bottom
 # face of the cube being placed, to avoid a collision on descent
-PLACE_MARGIN_M = 0.008 # 3 mm gap between stacked faces
+PLACE_MARGIN_M = 0.005 # 3 mm gap between stacked faces
 
 # How far the arm retracts upward (mm) after each placement before moving
 # to the next cube's position, so it doesn't collide with the growing tower
@@ -53,7 +53,7 @@ MIN_COMPONENT_AREA = 500 # pixels: blobs smaller than this are ignored
 MIN_3D_POINTS = 50  # min finite point cloud points per blob
 
 # ── Tuning constants (replace the originals at the top) ─────────────────────
-TOP_SURFACE_SLICE_M = 0.005   # 5 mm  — tight slice, excludes side faces
+TOP_SURFACE_SLICE_M = 0.01   # 5 mm  — tight slice, excludes side faces
 SIZE_EPS            = 0.0025  # 2.5 mm — separates 22.5 / 25 / 30 mm cleanly
 #   22.5 mm → bucket round(22.5/2.5)=9
 #   25.0 mm → bucket round(25.0/2.5)=10
@@ -66,7 +66,7 @@ COLOUR_RANGES = [
     ('red', numpy.array([0,   80,  80]), numpy.array([10,  255, 255])),
     ('red', numpy.array([160, 80,  80]), numpy.array([180, 255, 255])),
     ('green', numpy.array([45,  80,  80]), numpy.array([75,  255, 255])),
-    ('blue', numpy.array([95,  80,  80]), numpy.array([135, 255, 255])),
+    ('blue', numpy.array([95, 120, 100]), numpy.array([135, 255, 255])),
 ]
 
 # Colour helpers
@@ -113,6 +113,8 @@ def build_full_mask(hsv: numpy.ndarray, bgr: numpy.ndarray) -> numpy.ndarray:
     m2 = cv2.inRange(hsv, COLOUR_RANGES[1][1], COLOUR_RANGES[1][2])
     m3 = cv2.inRange(hsv, COLOUR_RANGES[2][1], COLOUR_RANGES[2][2])
     m4 = cv2.inRange(hsv, COLOUR_RANGES[3][1], COLOUR_RANGES[3][2])
+
+    m4 = cv2.erode(m4, numpy.ones((3, 3), numpy.uint8), iterations=1)
 
     mask_red = cv2.bitwise_or(m1, m2)
     full_mask = cv2.bitwise_or(mask_red, m3)
@@ -367,7 +369,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
 
         place_cube(arm, stack_target, cube['size_m'])
 
-        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=750, mvacc=750)
+        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=1000, mvacc=750)
 
         z_top = target_z - cube['size_m'] / 2.0
 
@@ -431,7 +433,7 @@ def main():
 
         stack_cubes(arm, cubes)
 
-        arm.move_gohome(wait=True, speed=600, mvacc=500)
+        arm.move_gohome(wait=True, speed=1000, mvacc=750)
 
     finally:
         arm.disconnect()

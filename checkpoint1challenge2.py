@@ -19,11 +19,11 @@ robot_ip = '192.168.1.166'
 PRE_GRASP_HEIGHT = 100
 
 # Fast transit between waypoints
-TRANSIT_SPEED  = 600    # mm/s
-TRANSIT_ACCEL  = 500   # mm/s²
+TRANSIT_SPEED  = 1000    # mm/s
+TRANSIT_ACCEL  = 600   # mm/s²
 # Slow, precise descent / ascent onto the cube
-DESCEND_SPEED  = 600    # mm/s
-DESCEND_ACCEL  = 500   # mm/s²
+DESCEND_SPEED  = 1000    # mm/s
+DESCEND_ACCEL  = 600   # mm/s²
 
 
 def grasp_cube_large(arm, cube_pose, size_m):
@@ -37,11 +37,11 @@ def grasp_cube_large(arm, cube_pose, size_m):
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
                      speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
-    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 44), r, p, yaw,
+    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 40), r, p, yaw,
                      is_radian=True, wait=True,
                      speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
     arm.close_lite6_gripper()
-    time.sleep(0.15)
+    time.sleep(0.2)
     #arm.stop_lite6_gripper()
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
@@ -60,11 +60,12 @@ def grasp_cube_small(arm, cube_pose, size_m):
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
                      speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
-    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 34), r, p, yaw,
+    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 31), r, p, yaw,
                      is_radian=True, wait=True,
                      speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
+    time.sleep(0.2)
     arm.close_lite6_gripper()
-    time.sleep(0.15)
+    time.sleep(0.3)
     #arm.stop_lite6_gripper()
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
@@ -82,7 +83,7 @@ def place_cube(arm, cube_pose, size_m):
     rot = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
 
-    place_z_offset = size_m * 1000 * 0.2 + 44   # mirrors grasp descent offset
+    place_z_offset = size_m * 1000 * 0.2 + 48   # mirrors grasp descent offset
 
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,

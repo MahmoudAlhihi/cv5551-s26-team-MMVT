@@ -18,7 +18,7 @@ from scipy.spatial.transform import Rotation
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
-from checkpoint1challenge import grasp_cube_large, grasp_cube_small, place_cube, GRIPPER_LENGTH
+from checkpoint1challenge2 import grasp_cube_large, grasp_cube_small, place_cube, GRIPPER_LENGTH
 import numpy 
 
 ROBOT_IP = '192.168.1.183'
@@ -35,7 +35,7 @@ STACK_BASE_M = np.array([
     STACK_BASE[1] / 1000.0,
     STACK_BASE[2] / 1000.0,
 ])
-SIZE_EPS = 0.003  # 3 mm tolerance for size-based decisions like grasping strategy or placement margins
+SIZE_EPS = 0.001  # 3 mm tolerance for size-based decisions like grasping strategy or placement margins
 
 # Stacking tuning
 # Extra clearance added between the top face of the cube below and the bottom
@@ -44,9 +44,9 @@ PLACE_MARGIN_M = 0.008 # 3 mm gap between stacked faces
 
 # How far the arm retracts upward (mm) after each placement before moving
 # to the next cube's position, so it doesn't collide with the growing tower
-POST_PLACE_LIFT_MM = 40
+POST_PLACE_LIFT_MM = 20
 
-PRE_GRASP_HEIGHT = 80
+PRE_GRASP_HEIGHT = 40
 
 # Detection thresholds
 MIN_COMPONENT_AREA = 500 # pixels: blobs smaller than this are ignored
@@ -61,7 +61,7 @@ COLOUR_RANGES = [
     ('red', numpy.array([0,   80,  80]), numpy.array([10,  255, 255])),
     ('red', numpy.array([160, 80,  80]), numpy.array([180, 255, 255])),
     ('green', numpy.array([45,  80,  80]), numpy.array([75,  255, 255])),
-    ('blue', numpy.array([95,  80,  80]), numpy.array([135, 255, 255])),
+    ('blue', numpy.array([95, 120, 100]), numpy.array([135, 255, 255])),
 ]
 
 # Colour helpers
@@ -108,6 +108,8 @@ def build_full_mask(hsv: numpy.ndarray, bgr: numpy.ndarray) -> numpy.ndarray:
     m2 = cv2.inRange(hsv, COLOUR_RANGES[1][1], COLOUR_RANGES[1][2])
     m3 = cv2.inRange(hsv, COLOUR_RANGES[2][1], COLOUR_RANGES[2][2])
     m4 = cv2.inRange(hsv, COLOUR_RANGES[3][1], COLOUR_RANGES[3][2])
+
+    m4 = cv2.erode(m4, numpy.ones((3, 3), numpy.uint8), iterations=1)
 
     mask_red = cv2.bitwise_or(m1, m2)
     full_mask = cv2.bitwise_or(mask_red, m3)
@@ -374,7 +376,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
 
         place_cube(arm, stack_target, cube['size_m'])
 
-        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=750, mvacc=750)
+        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=1000, mvacc=750)
 
         z_top = target_z - cube['size_m'] / 2.0
 
@@ -438,7 +440,7 @@ def main():
 
         stack_cubes(arm, cubes)
 
-        arm.move_gohome(wait=True)
+        arm.move_gohome(wait=True, speed = 1000, mvacc=700)
 
     finally:
         arm.disconnect()

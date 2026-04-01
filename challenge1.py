@@ -8,7 +8,7 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1challenge1 import grasp_cube, place_cube, GRIPPER_LENGTH
 
 STACK_BASE    = [229.4, -296.4, 23.2]   # mm, fixed stacking XY footprint
-PLACE_MARGIN_M = 0.00175                  # 1 mm gap between cubes
+PLACE_MARGIN_M = 0.001                  # 1 mm gap between cubes
 CUBE_SIZE      = 0.025                  # 25 mm
 ROBOT_IP       = '192.168.1.183'
 
@@ -146,7 +146,7 @@ def stack_cubes(arm, cube_results):
 
         place_cube(arm, stack_target)
 
-        arm.set_position(z=22.5, relative=True, wait=True, speed=1000, mvacc=500)
+        arm.set_position(z=22.5, relative=True, wait=True, speed=525, mvacc=500)
 
         z_top = target_z - CUBE_SIZE / 2.0   # advance top face for next cube
 
@@ -183,11 +183,11 @@ def main():
         for _, t_cam in cube_results:
             draw_pose_axes(cv_image, zed.camera_intrinsic, t_cam)
         cv2.imshow('Detected Cubes', cv_image)
-        # if cv2.waitKey(0) != ord('k'):
-        #     return
+        if cv2.waitKey(0) != ord('k'):
+            return
 
         stack_cubes(arm, cube_results)
-        arm.move_gohome(wait=True, speed=600, mvacc=500)
+        arm.move_gohome(wait=True, speed=525, mvacc=500)
 
     finally:
         arm.disconnect()

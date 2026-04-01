@@ -46,11 +46,11 @@ def grasp_cube(arm, cube_pose):
     #arm.stop_lite6_gripper()
  
     # move to pre grasp height above the cube
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 525, mvacc = 500)
     time.sleep(0.4)
  
     # move to grasp height
-    arm.set_position(x, y, -z + 38, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    arm.set_position(x, y, -z + 35, r, p, yaw, is_radian=True, wait=True, speed = 525, mvacc = 500)
     time.sleep(0.1)
  
     # close gripper
@@ -59,7 +59,7 @@ def grasp_cube(arm, cube_pose):
     #arm.stop_lite6_gripper()
  
     # lift back to safe height
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 525, mvacc = 500)
     # time.sleep(0.1)
 
 def place_cube(arm, cube_pose):
@@ -85,11 +85,11 @@ def place_cube(arm, cube_pose):
     r, p, yaw = rot.as_euler('xyz', degrees=False)
  
     # move to pre-place height above target
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 525, mvacc = 500)
     time.sleep(0.1)
  
     # descend to place height
-    arm.set_position(x, y, -z + 41, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    arm.set_position(x, y, -z + 40, r, p, yaw, is_radian=True, wait=True, speed = 525, mvacc = 500)
     time.sleep(0.1)
  
     # open gripper to release
@@ -98,7 +98,7 @@ def place_cube(arm, cube_pose):
     #arm.stop_lite6_gripper()
  
     # lift back to safe height
-    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 600, mvacc = 500)
+    arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True, speed = 525, mvacc = 500)
     # time.sleep(0.1)
 
 def get_transform_cube(observation, camera_intrinsic, camera_pose):
@@ -218,7 +218,7 @@ def main():
     
     finally:
         # Close Lite6 Robot
-        arm.move_gohome(wait=True, speed=600, mvacc=500)
+        arm.move_gohome(wait=True, speed=525, mvacc=500)
         # time.sleep(0.5)
         arm.disconnect()
 
