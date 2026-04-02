@@ -140,21 +140,29 @@ def main():
     zed = ZedCamera()
     camera_intrinsic = zed.camera_intrinsic
 
-    try:
+    
         # Get Observation
-        cv_image = zed.image
+    cv_image = zed.image
 
         # Get Transformation
-        t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
-        if t_cam_robot is None:
-            return
+    t_cam_robot = get_transform_camera_robot(cv_image, camera_intrinsic)
+    if t_cam_robot is None:
+        return
         
         # Visualization
-        draw_pose_axes(cv_image, camera_intrinsic, t_cam_robot, size=TAG_SIZE)
-        cv2.namedWindow('Verifying World Origin', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Verifying World Origin', 1280, 720)
-        cv2.imshow('Verifying World Origin', cv_image)
-        cv2.waitKey(0)
+
+    cv2.namedWindow('EchoFind - Live', cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('EchoFind - Live', 1280, 720)
+
+    try:
+        while True:
+            frame = zed.image
+
+            draw_pose_axes(frame, camera_intrinsic, t_cam_robot, size=TAG_SIZE)
+            cv2.imshow('Verifying World Origin', frame)
+        
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
     
     finally:
         # Close ZED Camera

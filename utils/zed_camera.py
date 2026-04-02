@@ -3,7 +3,7 @@ import pyzed.sl as sl
 
 class ZedCamera:
 
-    def __init__(self, resolution=sl.RESOLUTION.HD2K, fps=15, exposure=20):
+    def __init__(self, resolution=sl.RESOLUTION.HD1080, fps=30, exposure=20):
 
         # Initialize ZED Camera
         self._zed = sl.Camera()
