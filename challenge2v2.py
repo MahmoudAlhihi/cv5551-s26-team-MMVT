@@ -21,7 +21,7 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1challenge2 import grasp_cube_large, grasp_cube_small, place_cube, GRIPPER_LENGTH
 import numpy 
 
-ROBOT_IP = '192.168.1.183'
+ROBOT_IP = '192.168.1.182'
 
 # Phy cube size bounds (metres)
 # The rectangle footprint estimate is clamped to these limits to discard
@@ -34,7 +34,7 @@ SIZE_EPS = 0.001  # 3 mm tolerance for size-based decisions like grasping strate
 # Stacking tuning
 # Extra clearance added between the top face of the cube below and the bottom
 # face of the cube being placed, to avoid a collision on descent
-PLACE_MARGIN_M = 0.008 # 3 mm gap between stacked faces
+PLACE_MARGIN_M = 0.006 # 3 mm gap between stacked faces
 
 # How far the arm retracts upward (mm) after each placement before moving
 # to the next cube's position, so it doesn't collide with the growing tower

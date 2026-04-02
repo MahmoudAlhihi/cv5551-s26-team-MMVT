@@ -9,7 +9,7 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1 import grasp_cube, GRIPPER_LENGTH
 from checkpoint2 import place_in_basket, BASKET_POSE
 
-robot_ip = '192.168.1.155'
+robot_ip = '192.168.1.182'
 
 def main():
 
