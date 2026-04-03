@@ -119,7 +119,13 @@ def push_cube(arm, t_robot_cube, target_xy_mm=None,
     push_distance_m: how far (metres) the gripper travels through the cube
     """
     cube_pos = t_robot_cube[:3, 3] # metres
-    dx, dy   = compute_push_direction(t_robot_cube, target_xy_mm)
+    dx, dy = compute_push_direction(t_robot_cube, target_xy_mm)
+
+    if target_xy_mm is not None:
+        cube_xy_mm = cube_pos[:2] * 1000.0
+        target = numpy.array(target_xy_mm, dtype=float)
+        dist_mm = numpy.linalg.norm(target - cube_xy_mm)
+        push_distance_m = (dist_mm / 1000.0) + 0.005  # 5 mm overshoot
 
     # Contact height: cube centre, nudged slightly below to avoid riding over
     contact_z_mm = (cube_pos[2] - CUBE_SIZE * 0.05) * 1000.0
@@ -132,14 +138,14 @@ def push_cube(arm, t_robot_cube, target_xy_mm=None,
     end_x = (cube_pos[0] + dx * push_distance_m) * 1000.0
     end_y = (cube_pos[1] + dy * push_distance_m) * 1000.0
 
-    print(f"  Cube centre  : ({cube_pos[0]*1000:.1f}, {cube_pos[1]*1000:.1f}) mm")
-    print(f"  Push direction: ({dx:.3f}, {dy:.3f})")
-    print(f"  Approach     : ({approach_x:.1f}, {approach_y:.1f}) mm")
-    print(f"  End          : ({end_x:.1f}, {end_y:.1f}) mm")
-    print(f"  Contact Z    : {contact_z_mm:.1f} mm")
+    print(f"Cube centre: ({cube_pos[0]*1000:.1f}, {cube_pos[1]*1000:.1f}) mm")
+    print(f"Push direction: ({dx:.3f}, {dy:.3f})")
+    print(f"Approach: ({approach_x:.1f}, {approach_y:.1f}) mm")
+    print(f"End: ({end_x:.1f}, {end_y:.1f}) mm")
+    print(f"Contact Z: {contact_z_mm:.1f} mm")
 
     # Move above the approach point at safe height
-    print("  [1/4] Moving above approach point...")
+    print("[1/4] Moving above approach point...")
     arm.set_position(
         x=approach_x, y=approach_y, z=SAFE_Z_MM,
         roll=180, pitch=0, yaw=90,
@@ -209,7 +215,7 @@ def main():
         # Push the first detected cube
         # Edit target_xy_mm to push toward a specific location,
         # or set to None to push along +X.
-        target_xy_mm = None  # change to desired target
+        target_xy_mm = [229.5, 136.5]  # change to desired target
 
         t_robot_cube, _ = cube_results[0]
         print("\nPushing cube...")
