@@ -28,7 +28,6 @@ ROBOT_IP = '192.168.1.182'
 # noise from incomplete point clouds or reflective surfaces
 MIN_CUBE_SIZE_M = 0.015 # 15 mm: smallest cube in challenge
 MAX_CUBE_SIZE_M = 0.040 # 40 mm: largest cube in challenge
-
 SIZE_EPS = 0.001  # 3 mm tolerance for size-based decisions like grasping strategy or placement margins
 
 # Stacking tuning
@@ -352,7 +351,7 @@ def stack_cubes(arm, cubes: list[dict]) -> None:
 
         place_cube(arm, stack_target, cube['size_m'])
 
-        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=1000, mvacc=750)
+        arm.set_position(z=POST_PLACE_LIFT_MM, relative=True, wait=True, speed=1000, mvacc=500)
 
         z_top = target_z - cube['size_m'] / 2.0
 
@@ -365,6 +364,8 @@ def main():
     arm = XArmAPI(ROBOT_IP)
     arm.connect()
     arm.motion_enable(enable=True)
+    arm.set_gripper_enable(True)
+    arm.set_gripper_speed(2000)
     arm.set_tcp_offset([0, 0, GRIPPER_LENGTH, 0, 0, 0])
     arm.set_mode(0)
     arm.set_state(0)
@@ -416,7 +417,7 @@ def main():
 
         stack_cubes(arm, cubes)
 
-        arm.move_gohome(wait=True, speed = 1000, mvacc=700)
+        arm.move_gohome(wait=True, speed = 1000, mvacc=500)
 
     finally:
         arm.disconnect()

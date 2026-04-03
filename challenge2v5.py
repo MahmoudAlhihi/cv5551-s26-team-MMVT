@@ -24,7 +24,11 @@ from checkpoint0 import get_transform_camera_robot
 from checkpoint1challenge2 import grasp_cube_large, grasp_cube_small, place_cube, GRIPPER_LENGTH, TRANSIT_SPEED, TRANSIT_ACCEL
 import numpy 
 
+<<<<<<< HEAD
 ROBOT_IP = '192.168.1.182'
+=======
+ROBOT_IP = '192.168.1.183'
+>>>>>>> 8650b2540f103a9793e5d3068d29c54fd3edfc19
 
 # Phy cube size bounds (metres)
 # The rectangle footprint estimate is clamped to these limits to discard

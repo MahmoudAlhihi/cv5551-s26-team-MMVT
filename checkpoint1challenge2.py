@@ -20,10 +20,10 @@ PRE_GRASP_HEIGHT = 100
 
 # Fast transit between waypoints
 TRANSIT_SPEED  = 1000    # mm/s
-TRANSIT_ACCEL  = 600   # mm/s²
+TRANSIT_ACCEL  = 500   # mm/s²
 # Slow, precise descent / ascent onto the cube
 DESCEND_SPEED  = 1000    # mm/s
-DESCEND_ACCEL  = 600   # mm/s²
+DESCEND_ACCEL  = 500   # mm/s²
 
 
 def grasp_cube_large(arm, cube_pose, size_m):
@@ -37,7 +37,7 @@ def grasp_cube_large(arm, cube_pose, size_m):
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
                      speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
-    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 40), r, p, yaw,
+    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 42), r, p, yaw,
                      is_radian=True, wait=True,
                      speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
     arm.close_lite6_gripper()
@@ -60,7 +60,7 @@ def grasp_cube_small(arm, cube_pose, size_m):
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw,
                      is_radian=True, wait=True,
                      speed=TRANSIT_SPEED, mvacc=TRANSIT_ACCEL)
-    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 31), r, p, yaw,
+    arm.set_position(x, y, -z + (size_m * 1000 * 0.2 + 35), r, p, yaw,
                      is_radian=True, wait=True,
                      speed=DESCEND_SPEED, mvacc=DESCEND_ACCEL)
     time.sleep(0.2)

@@ -155,9 +155,10 @@ def stack_cubes(arm, cube_results):
 
 # ── Entry Point ───────────────────────────────────────────────────────────────
 def main():
-    zed = ZedCamera()
     arm = XArmAPI(ROBOT_IP)
     arm.connect()
+    arm.clean_error()
+    arm.clean_warn()
     arm.motion_enable(enable=True)
     arm.set_tcp_offset([0, 0, GRIPPER_LENGTH, 0, 0, 0])
     arm.set_mode(0)
