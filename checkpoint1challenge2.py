@@ -15,21 +15,56 @@ CUBE_TAG_SIZE = 0.0206
 robot_ip = '192.168.1.166'
 
 # safe height (mm) above the cube to move to before coming down to grasp/place
-PRE_GRASP_HEIGHT = 120
+PRE_GRASP_HEIGHT = 180
+PRE_GRASP_HEIGHT_GREEN = 80
+
+# def grasp_cube_large(arm, cube_pose, size_m):
+#     """
+#     Execute a pick sequence to grasp a cube at a specified pose.
+
+#     Parameters
+#     ----------
+#     arm : xarm.wrapper.XArmAPI
+#         The initialized XArm API object controlling the Lite6 robot.
+#     cube_pose : numpy.ndarray
+#         A 4x4 transformation matrix representing the cube's pose in the robot base frame.
+#         All translational units in this matrix are in meters.
+#     """
+#     # For cube size > 20mm → Z margin = +40
+#     x = cube_pose[0, 3] * 1000
+#     y = cube_pose[1, 3] * 1000
+#     center_z = cube_pose[2, 3]
+
+#     rot = Rotation.from_matrix(cube_pose[:3, :3])
+#     r, p, yaw = rot.as_euler('xyz', degrees=False)
+
+#     #correct top surface
+#     top_z = center_z + size_m / 2.0
+#     z_mm = top_z * 1000
+
+#     arm.open_lite6_gripper()
+#     time.sleep(0.1)
+#     #arm.stop_lite6_gripper()
+
+#     arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+#     time.sleep(0.5)
+
+#     # LARGE cube
+#     arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw, is_radian=True, wait=True)
+#     time.sleep(0.5)
+
+#     arm.close_lite6_gripper()
+#     time.sleep(0.2)
+#     #arm.stop_lite6_gripper()
+
+#     arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+#     time.sleep(0.1)
+
+#     print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
+
+RED_SAFE_GRASP_Z_MM = 44   # your known safe red-cube grasp/table clearance reference
 
 def grasp_cube_large(arm, cube_pose, size_m):
-    """
-    Execute a pick sequence to grasp a cube at a specified pose.
-
-    Parameters
-    ----------
-    arm : xarm.wrapper.XArmAPI
-        The initialized XArm API object controlling the Lite6 robot.
-    cube_pose : numpy.ndarray
-        A 4x4 transformation matrix representing the cube's pose in the robot base frame.
-        All translational units in this matrix are in meters.
-    """
-    # For cube size > 20mm → Z margin = +40
     x = cube_pose[0, 3] * 1000
     y = cube_pose[1, 3] * 1000
     center_z = cube_pose[2, 3]
@@ -37,71 +72,63 @@ def grasp_cube_large(arm, cube_pose, size_m):
     rot = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
 
-    #correct top surface
     top_z = center_z + size_m / 2.0
     z_mm = top_z * 1000
 
     arm.open_lite6_gripper()
     time.sleep(0.1)
-    #arm.stop_lite6_gripper()
 
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+                     is_radian=True, wait=True)
+    time.sleep(0.2)
 
-    # LARGE cube
-    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.5)
+    # original desired descend
+    desired_cmd_z = -z_mm + (size_m * 1000 * 0.2 + 44)
+
+    # do not descend lower than the known safe 44 mm reference
+    min_safe_cmd_z = -RED_SAFE_GRASP_Z_MM + 88
+
+    descend_cmd_z = max(desired_cmd_z, min_safe_cmd_z)
+
+    arm.set_position(x, y, descend_cmd_z, r, p, yaw,
+                     is_radian=True, wait=True)
+    time.sleep(0.2)
 
     arm.close_lite6_gripper()
     time.sleep(0.2)
-    #arm.stop_lite6_gripper()
 
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
-    time.sleep(0.1)
-
-    print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
-
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw,
+                     is_radian=True, wait=True)
 
 def grasp_cube_small(arm, cube_pose, size_m):
-    """
-    Execute a pick sequence to grasp a cube at a specified pose.
-
-    Parameters
-    ----------
-    arm : xarm.wrapper.XArmAPI
-        The initialized XArm API object controlling the Lite6 robot.
-    cube_pose : numpy.ndarray
-        A 4x4 transformation matrix representing the cube's pose in the robot base frame.
-        All translational units in this matrix are in meters.
-    """
-    # For cube size ≤ 20mm → Z margin = +35
     x = cube_pose[0, 3] * 1000
     y = cube_pose[1, 3] * 1000
     center_z = cube_pose[2, 3]
 
-    rot = Rotation.from_matrix(cube_pose[:3, :3])
-    r, p, yaw = rot.as_euler('xyz', degrees=False)
+    # fixed orientation: roll=180°, pitch=0°, yaw=0°
+    r = numpy.pi
+    p = 0.0
+    yaw = 0.0
 
-    #correct top surface
     top_z = center_z + size_m / 2.0
     z_mm = top_z * 1000
 
     arm.open_lite6_gripper()
     time.sleep(0.1)
-    #arm.stop_lite6_gripper()
 
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT_GREEN, r, p, yaw,
+                     is_radian=True, wait=True)
     time.sleep(0.5)
 
-    # SMALL cube
-    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 44), r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + (size_m * 1000 * 0.2 + 36), r, p, yaw,
+                     is_radian=True, wait=True)
     time.sleep(0.5)
 
     arm.close_lite6_gripper()
     time.sleep(0.2)
-    #arm.stop_lite6_gripper()
 
-    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
+    arm.set_position(x, y, -z_mm + PRE_GRASP_HEIGHT_GREEN, r, p, yaw,
+                     is_radian=True, wait=True)
     time.sleep(0.1)
 
     print(f"size={size_m*1000:.1f}mm | center_z={center_z:.3f} | top_z={top_z:.3f}")
@@ -129,7 +156,7 @@ def place_cube(arm, cube_pose, size_m):
     rot = Rotation.from_matrix(cube_pose[:3, :3])
     r, p, yaw = rot.as_euler('xyz', degrees=False)
 
-    place_z_offset = size_m * 1000 * 0.2 + 44  # matches grasp_cube_small
+    place_z_offset = size_m * 1000 * 0.2 + 80  # matches grasp_cube_small
  
     # move to pre-place height above target
     arm.set_position(x, y, -z + PRE_GRASP_HEIGHT, r, p, yaw, is_radian=True, wait=True)
