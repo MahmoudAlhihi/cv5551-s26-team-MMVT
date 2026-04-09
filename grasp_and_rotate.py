@@ -1,4 +1,5 @@
 import cv2
+import time
 import numpy
 from xarm.wrapper import XArmAPI
 from utils.vis_utils import draw_pose_axes
@@ -11,7 +12,7 @@ CUBE_SIZE = 0.025 # 25 mm
 ROBOT_IP = '192.168.1.182'
 
 SAFE_Z_MM = 150.0 # safe travel height (mm)
-GRASP_Z_OFFSET = 0.005 # 5 mm above cube bottom — gripper grips around mid-height
+GRASP_Z_OFFSET = 0.008 # 5 mm above cube bottom — gripper grips around mid-height
 TRAVEL_SPEED = 200 # mm/s — free-space moves
 GRASP_SPEED = 50 # mm/s — slow on descent to cube
 LIFT_HEIGHT_MM = 30.0 # how high to lift cube before rotating (mm above contact)
@@ -99,8 +100,11 @@ def cube_yaw_deg(t_robot_cube: numpy.ndarray) -> float:
 
 
 def set_gripper(arm: XArmAPI, position: int, wait: bool = True) -> None:
-    """Open or close the gripper"""
-    arm.set_gripper_position(position, wait=wait)
+    if position < 400:
+        arm.close_lite6_gripper()
+    else:
+        arm.open_lite6_gripper()
+    time.sleep(0.2)
 
 def grasp_and_rotate(arm: XArmAPI,
                      t_robot_cube: numpy.ndarray,
@@ -204,15 +208,14 @@ def main():
     arm.clean_error()
     arm.clean_warn()
     arm.motion_enable(enable=True)
-    arm.set_mode(0)
-    arm.set_state(0)
-    arm.motion_enable(enable=True)
     arm.set_tcp_offset([0, 0, GRIPPER_LENGTH, 0, 0, 0])
     arm.set_mode(0)
     arm.set_state(0)
     arm.move_gohome(wait=True)
 
-    set_gripper(arm, GRIPPER_OPEN)
+    
+
+    #set_gripper(arm, GRIPPER_OPEN)k
 
     try:
         cv_image, point_cloud = zed.get_synchronized_frame()

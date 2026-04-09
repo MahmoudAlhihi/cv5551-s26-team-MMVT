@@ -10,7 +10,7 @@ from checkpoint1challenge1 import grasp_cube, place_cube, GRIPPER_LENGTH
 STACK_BASE    = [229.4, -296.4, 23.2]   # mm, fixed stacking XY footprint
 PLACE_MARGIN_M = 0.001                  # 1 mm gap between cubes
 CUBE_SIZE      = 0.025                  # 25 mm
-ROBOT_IP       = '192.168.1.183'
+ROBOT_IP       = '192.168.1.182'
 
 # Cube Detection
 def get_all_cube_poses(observation, camera_intrinsic, camera_pose):
