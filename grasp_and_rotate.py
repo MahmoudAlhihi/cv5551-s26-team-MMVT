@@ -162,9 +162,10 @@ def grasp_and_rotate(arm: XArmAPI,
     # 4 — Lift cube off table
     print("[4/7] Lifting cube...")
     arm.set_position(
-        z=lift_z_mm,
+        x=cx_mm, y=cy_mm, z=lift_z_mm,
+        roll=180, pitch=0, yaw=yaw_now,
         wait=True, speed=GRASP_SPEED, mvacc=200
-    )
+    )   
 
     # 5 — Rotate in place
     print(f"[5/7] Rotating {rotate_deg:+.1f}°...")
@@ -186,7 +187,8 @@ def grasp_and_rotate(arm: XArmAPI,
     print("[7/7] Opening gripper and retreating...")
     set_gripper(arm, GRIPPER_OPEN)
     arm.set_position(
-        z=SAFE_Z_MM,
+        x=cx_mm, y=cy_mm, z=SAFE_Z_MM,
+        roll=180, pitch=0, yaw=yaw_new,
         wait=True, speed=TRAVEL_SPEED, mvacc=500
     )
 
@@ -199,6 +201,11 @@ def main():
     zed = ZedCamera()
     arm = XArmAPI(ROBOT_IP)
     arm.connect()
+    arm.clean_error()
+    arm.clean_warn()
+    arm.motion_enable(enable=True)
+    arm.set_mode(0)
+    arm.set_state(0)
     arm.motion_enable(enable=True)
     arm.set_tcp_offset([0, 0, GRIPPER_LENGTH, 0, 0, 0])
     arm.set_mode(0)
