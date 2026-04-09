@@ -1,0 +1,1 @@
+I will be using an electret mic amp (max9814) mounted on the end of a robot arm. This mic will detect a 2.5Khz sound from a speaker and send the value to a python program. The mic will be running on an Arduino Uno 
