@@ -4,13 +4,12 @@ from xarm.wrapper import XArmAPI
 from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
-
-GRIPPER_LENGTH = 0.067 * 1000
+from checkpoint1challenge1 import GRIPPER_LENGTH
 
 CUBE_SIZE = 0.025 # 25 mm
 ROBOT_IP = '192.168.1.182'
 
-SAFE_Z_MM = 150.0 # safe travel height (mm)
+SAFE_Z_MM = 170.0 # safe travel height (mm)
 APPROACH_OFFSET = 0.07 # 7 cm behind cube — must clear gripper tip on descent
 PUSH_DISTANCE = 0.06 # 6 cm forward push
 PUSH_SPEED = 60 # mm/s — slow for controlled contact
@@ -120,7 +119,13 @@ def push_cube(arm, t_robot_cube, target_xy_mm=None,
     push_distance_m: how far (metres) the gripper travels through the cube
     """
     cube_pos = t_robot_cube[:3, 3] # metres
-    dx, dy   = compute_push_direction(t_robot_cube, target_xy_mm)
+    dx, dy = compute_push_direction(t_robot_cube, target_xy_mm)
+
+    if target_xy_mm is not None:
+        cube_xy_mm = cube_pos[:2] * 1000.0
+        target = numpy.array(target_xy_mm, dtype=float)
+        dist_mm = numpy.linalg.norm(target - cube_xy_mm)
+        push_distance_m = (dist_mm / 1000.0) + 0.005  # 5 mm overshoot
 
     # Contact height: cube centre, nudged slightly below to avoid riding over
     contact_z_mm = (cube_pos[2] - CUBE_SIZE * 0.05) * 1000.0
@@ -133,38 +138,38 @@ def push_cube(arm, t_robot_cube, target_xy_mm=None,
     end_x = (cube_pos[0] + dx * push_distance_m) * 1000.0
     end_y = (cube_pos[1] + dy * push_distance_m) * 1000.0
 
-    print(f"  Cube centre  : ({cube_pos[0]*1000:.1f}, {cube_pos[1]*1000:.1f}) mm")
-    print(f"  Push direction: ({dx:.3f}, {dy:.3f})")
-    print(f"  Approach     : ({approach_x:.1f}, {approach_y:.1f}) mm")
-    print(f"  End          : ({end_x:.1f}, {end_y:.1f}) mm")
-    print(f"  Contact Z    : {contact_z_mm:.1f} mm")
+    print(f"Cube centre: ({cube_pos[0]*1000:.1f}, {cube_pos[1]*1000:.1f}) mm")
+    print(f"Push direction: ({dx:.3f}, {dy:.3f})")
+    print(f"Approach: ({approach_x:.1f}, {approach_y:.1f}) mm")
+    print(f"End: ({end_x:.1f}, {end_y:.1f}) mm")
+    print(f"Contact Z: {contact_z_mm:.1f} mm")
 
     # Move above the approach point at safe height
-    print("  [1/4] Moving above approach point...")
+    print("[1/4] Moving above approach point...")
     arm.set_position(
         x=approach_x, y=approach_y, z=SAFE_Z_MM,
-        roll=180, pitch=0, yaw=0,
+        roll=180, pitch=0, yaw=90,
         wait=True, speed=TRAVEL_SPEED, mvacc=500
     )
 
     # Desc to contact height
     print("  [2/4] Descending to contact height...")
-    arm.set_position(
-        z=contact_z_mm,
-        wait=True, speed=100, mvacc=200
+    arm.set_position( x=approach_x, y=approach_y, z=contact_z_mm, roll=180, pitch=0, yaw=90, wait=True, speed=100, mvacc=200
     )
 
     # Push straight through
     print("  [3/4] Pushing cube...")
     arm.set_position(
         x=end_x, y=end_y, z=contact_z_mm,
+        roll=180, pitch=0, yaw=90,
         wait=True, speed=PUSH_SPEED, mvacc=200
     )
 
     # Lift back to safe height
     print("  [4/4] Lifting clear...")
     arm.set_position(
-        z=SAFE_Z_MM,
+        x=end_x, y=end_y, z=SAFE_Z_MM,
+        roll=180, pitch=0, yaw=90,
         wait=True, speed=TRAVEL_SPEED, mvacc=500
     )
 
@@ -174,14 +179,13 @@ def main():
     zed = ZedCamera()
     arm = XArmAPI(ROBOT_IP)
     arm.connect()
+    arm.clean_error()                
+    arm.clean_warn()                
     arm.motion_enable(enable=True)
     arm.set_tcp_offset([0, 0, GRIPPER_LENGTH, 0, 0, 0])
     arm.set_mode(0)
     arm.set_state(0)
     arm.move_gohome(wait=True)
-
-    # Close the gripper so it acts as a solid pusher
-    arm.set_gripper_position(0, wait=True)
 
     try:
         cv_image, point_cloud = zed.get_synchronized_frame()
@@ -211,13 +215,13 @@ def main():
         # Push the first detected cube
         # Edit target_xy_mm to push toward a specific location,
         # or set to None to push along +X.
-        target_xy_mm = None  # change to desired target
+        target_xy_mm = [229.5, 136.5]  # change to desired target
 
         t_robot_cube, _ = cube_results[0]
         print("\nPushing cube...")
         push_cube(arm, t_robot_cube, target_xy_mm=target_xy_mm)
 
-        arm.move_gohome(wait=True, speed=TRAVEL_SPEED, mvacc=500)
+        arm.move_gohome(wait=True)
 
     finally:
         arm.disconnect()
