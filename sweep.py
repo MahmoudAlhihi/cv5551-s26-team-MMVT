@@ -1,4 +1,28 @@
+# neeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeed python sweep.py --port /dev/ttyACM0
+
 from xarm.wrapper import XArmAPI
+from read_mic import find_arduino_port, serial_reader, latest_values, data_lock
+import threading
+import time
+import matplotlib.pyplot as plt
+
+def collect_mic_data(duration=2.0, port=None, baud=115200, window=500):
+    port = port or find_arduino_port()
+    t = threading.Thread(target=serial_reader, args=(port, baud, window), daemon=True)
+    t.start()
+    time.sleep(duration)
+    with data_lock:
+        return list(latest_values)
+
+def plot_mic_data(data):
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(data, color="#00e5ff", linewidth=1.0)
+    ax.fill_between(range(len(data)), data, alpha=0.18, color="#00e5ff")
+    ax.set_xlabel("Sample")
+    ax.set_ylabel("2.5 kHz Magnitude")
+    ax.set_title(f"Recorded Signal  |  {len(data)} samples  |  peak: {max(data):.1f}")
+    fig.tight_layout()
+    plt.show()
 
 GRIPPER_LENGTH = 0.067 * 1000
 
@@ -13,36 +37,95 @@ SWEEP_SPEED = 100 # mm/s
 TRAVEL_SPEED = 100 # mm/s
 ROW_STEP = 40.0 # spacing between parallel sweep passes (mm)
 
+# def sweep_table(arm: XArmAPI, port=None) -> None:
+#     # Move to start position (wait for this one)
+#     arm.set_position(
+#         x=X_MAX, y=Y_MIN, z=SWEEP_Z,
+#         roll=180, pitch=0, yaw=0,
+#         wait=True, speed=TRAVEL_SPEED, mvacc=500
+#     )
 
-def sweep_table(arm: XArmAPI) -> None:
-    
+#     # Start the sweep move WITHOUT waiting
+#     arm.set_position(
+#         x=X_MIN, y=Y_MIN, z=SWEEP_Z,
+#         roll=180, pitch=0, yaw=0,
+#         wait=False, speed=SWEEP_SPEED, mvacc=500
+#     )
 
-    # Reposition above row start at travel speed
+#     arm.set_position(
+#         x=X_MIN, y=Y_MAX, z=SWEEP_Z,
+#         roll=180, pitch=0, yaw=0,
+#         wait=True, speed=TRAVEL_SPEED, mvacc=500
+#     )
+
+#     # Record mic while the arm is moving
+#     move_duration = (X_MAX - X_MIN) / SWEEP_SPEED  # ~2.1s
+#     data = collect_mic_data(duration=move_duration + 1.0, port=port)
+
+#     # Wait for arm to finish just in case
+#     time.sleep(1.0)
+
+#     plot_mic_data(data)
+
+#     print("Sweep complete.")
+
+def sweep_table(arm: XArmAPI, port=None) -> None:
+    # Move to start position
     arm.set_position(
         x=X_MAX, y=Y_MIN, z=SWEEP_Z,
         roll=180, pitch=0, yaw=0,
         wait=True, speed=TRAVEL_SPEED, mvacc=500
     )
 
-    # Reposition above row start at travel speed
+    # Sweep X_MAX -> X_MIN along Y_MIN (record while moving)
     arm.set_position(
         x=X_MIN, y=Y_MIN, z=SWEEP_Z,
         roll=180, pitch=0, yaw=0,
-        wait=True, speed=TRAVEL_SPEED, mvacc=500
+        wait=False, speed=SWEEP_SPEED, mvacc=500
     )
+    x_duration = (X_MAX - X_MIN) / SWEEP_SPEED
+    data_x = collect_mic_data(duration=x_duration + 1.0, port=port)
+    time.sleep(1.0)
 
-    # Reposition above row start at travel speed
+    # Clear the shared deque for the next recording
+    with data_lock:
+        latest_values.clear()
+
+    # Sweep X_MIN,Y_MIN -> X_MIN,Y_MAX (record while moving)
     arm.set_position(
         x=X_MIN, y=Y_MAX, z=SWEEP_Z,
         roll=180, pitch=0, yaw=0,
-        wait=True, speed=TRAVEL_SPEED, mvacc=500
+        wait=False, speed=SWEEP_SPEED, mvacc=500
     )
+    y_duration = (Y_MAX - Y_MIN) / SWEEP_SPEED
+    data_y = collect_mic_data(duration=y_duration + 1.0, port=port)
+    time.sleep(1.0)
 
+    # Plot both sweeps
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
+
+    ax1.plot(data_x, color="#00e5ff", linewidth=1.0)
+    ax1.fill_between(range(len(data_x)), data_x, alpha=0.18, color="#00e5ff")
+    ax1.set_ylabel("2.5 kHz Magnitude")
+    ax1.set_title(f"X Sweep (X_MAX→X_MIN)  |  {len(data_x)} samples  |  peak: {max(data_x):.1f}" if data_x else "X Sweep — no data")
+
+    ax2.plot(data_y, color="#ff6e40", linewidth=1.0)
+    ax2.fill_between(range(len(data_y)), data_y, alpha=0.18, color="#ff6e40")
+    ax2.set_xlabel("Sample")
+    ax2.set_ylabel("2.5 kHz Magnitude")
+    ax2.set_title(f"Y Sweep (Y_MIN→Y_MAX)  |  {len(data_y)} samples  |  peak: {max(data_y):.1f}" if data_y else "Y Sweep — no data")
+
+    fig.tight_layout()
+    plt.show()
 
     print("Sweep complete.")
 
-
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", default=None)
+    args = parser.parse_args()
+
     arm = XArmAPI(ROBOT_IP)
     arm.connect()
     arm.motion_enable(enable=True)
@@ -52,7 +135,7 @@ def main():
     arm.move_gohome(wait=True)
 
     try:
-        sweep_table(arm)
+        sweep_table(arm, port=args.port)
         arm.move_gohome(wait=True)
     finally:
         arm.disconnect()
