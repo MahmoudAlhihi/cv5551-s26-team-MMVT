@@ -9,7 +9,7 @@ from checkpoint1challenge1 import GRIPPER_LENGTH
 CUBE_SIZE = 0.025 # 25 mm
 ROBOT_IP = '192.168.1.182'
 
-SAFE_Z_MM = 150.0 # safe travel height (mm)
+SAFE_Z_MM = 170.0 # safe travel height (mm)
 APPROACH_OFFSET = 0.07 # 7 cm behind cube — must clear gripper tip on descent
 PUSH_DISTANCE = 0.06 # 6 cm forward push
 PUSH_SPEED = 60 # mm/s — slow for controlled contact

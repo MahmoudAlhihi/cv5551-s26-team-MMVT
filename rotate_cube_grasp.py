@@ -5,6 +5,7 @@ from utils.vis_utils import draw_pose_axes
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
 from checkpoint1challenge1 import GRIPPER_LENGTH
+import time
 
 # Params
 CUBE_SIZE = 0.025  # 25 mm
@@ -289,9 +290,14 @@ def main():
 
     # Enable gripper
     arm.set_gripper_enable(True)
+    time.sleep(0.5)
     arm.set_gripper_mode(0)
+    time.sleep(0.5)
+    arm.set_gripper_speed(GRIPPER_SPEED)
+    time.sleep(0.5)
 
     arm.move_gohome(wait=True)
+
 
     try:
         cv_image, point_cloud = zed.get_synchronized_frame()

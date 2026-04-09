@@ -228,7 +228,7 @@ def _push_params_for_rotation(t_robot_cube, delta_yaw, push_depth_m=0.04):
 
 def rotate_cube_in_place(arm, t_robot_cube, delta_yaw_deg,
                          push_depth_m=0.04,
-                         contact_z_frac=0.35):
+                         contact_z_frac=1.5):
     """
     Rotate a cube approximately delta_yaw_deg degrees in place using
     a single off-centre push.

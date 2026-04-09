@@ -3,6 +3,7 @@ import numpy
 import open3d as o3d
 from utils.zed_camera import ZedCamera
 from checkpoint0 import get_transform_camera_robot
+import matplotlib.cm as cm
 
 ROBOT_IP = '192.168.1.182'
 
@@ -47,9 +48,7 @@ def voxelize_table(point_cloud, T_cam_robot):
 
     z_vals = numpy.asarray(pcd.points)[:, 2]
     z_norm = (z_vals - z_vals.min()) / (z_vals.max() - z_vals.min() + 1e-8)
-    colors = numpy.zeros((len(pcd.points), 3))
-    colors[:, 0] = z_norm
-    colors[:, 2] = 1.0 - z_norm
+    colors = cm.turbo(z_norm)[:, :3]
     pcd.colors = o3d.utility.Vector3dVector(colors)
 
     voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud(
