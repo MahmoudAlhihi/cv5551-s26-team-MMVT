@@ -164,22 +164,23 @@ def _extract_cup_clusters(
 # Internal: colour helpers
 
 def _belief_to_rgb(p: float) -> Tuple[float, float, float]:
-    """
-    p=0.0 → cold blue  (0.18, 0.27, 0.80)
-    p=0.5 → neutral    (0.70, 0.70, 0.70)
-    p=1.0 → hot red    (0.85, 0.10, 0.10)
-    """
-    p       = float(np.clip(p, 0.0, 1.0))
-    cold    = np.array([0.18, 0.27, 0.80])
-    neutral = np.array([0.70, 0.70, 0.70])
-    hot     = np.array([0.85, 0.10, 0.10])
-    if p < 0.5:
-        t   = p / 0.5
-        rgb = (1 - t) * cold + t * neutral
-    else:
-        t   = (p - 0.5) / 0.5
-        rgb = (1 - t) * neutral + t * hot
-    return tuple(rgb.tolist())
+    """Heatmap: p=0 → dark blue, p=0.25 → cyan, p=0.5 → green, p=0.75 → yellow, p=1 → red"""
+    p = float(np.clip(p, 0.0, 1.0))
+    stops = [
+        (0.00, np.array([0.00, 0.00, 0.50])),  # dark blue
+        (0.25, np.array([0.00, 0.70, 0.90])),  # cyan
+        (0.50, np.array([0.00, 0.85, 0.00])),  # green
+        (0.75, np.array([0.95, 0.90, 0.00])),  # yellow
+        (1.00, np.array([0.90, 0.05, 0.05])),  # red
+    ]
+    for i in range(len(stops) - 1):
+        lo_p, lo_c = stops[i]
+        hi_p, hi_c = stops[i + 1]
+        if p <= hi_p:
+            t = (p - lo_p) / (hi_p - lo_p)
+            rgb = (1 - t) * lo_c + t * hi_c
+            return tuple(rgb.tolist())
+    return tuple(stops[-1][1].tolist())
 
 
 def _recolour_voxels(
@@ -540,7 +541,14 @@ if __name__ == "__main__":
     arm.set_mode(0)
     arm.set_state(0)
     arm.move_gohome(wait=True)
-    
+
+    def safe_gohome(arm):
+        """Lift 20mm from current position, then go home."""
+        code, pos = arm.get_position()
+        if code == 0 and pos:
+            arm.set_position(pos[0], pos[1], pos[2] + 20, pos[3], pos[4], pos[5], wait=True)
+        arm.move_gohome(wait=True)
+
     zed = ZedCamera()
     try:
         cv_image, point_cloud = zed.get_synchronized_frame()
@@ -568,7 +576,7 @@ if __name__ == "__main__":
 
     try:
         x_mm, y_mm, data_x, data_y = sweep_table(arm, port=MIC_PORT)
-        arm.move_gohome(wait=True)
+        safe_gohome(arm)
 
         xs = np.array([x_mm / 1000.0])
         ys = np.array([y_mm / 1000.0])
@@ -616,7 +624,7 @@ if __name__ == "__main__":
             # Grasp and rotate 180° using AprilTag pose
             bf.apply_action(Action.CHECK, cup_id=best_cup.cup_id)
             do_grasp_rotate(arm, t_robot_cube, rotate_deg=180.0)
-            arm.move_gohome(wait=True)
+            safe_gohome(arm)
             time.sleep(0.5)
 
             # Camera check: look for the red target
@@ -669,7 +677,7 @@ if __name__ == "__main__":
 
             step += 1
 
-        arm.move_gohome(wait=True)
+        safe_gohome(arm)
 
     finally:
         arm.disconnect()
