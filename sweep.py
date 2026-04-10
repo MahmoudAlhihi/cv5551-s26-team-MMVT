@@ -135,6 +135,9 @@ def sweep_table(arm: XArmAPI, port=None) -> None:
 
     print("Sweep complete.")
 
+    # add before print("Sweep complete.")
+    return x_coord, y_coord, data_x, data_y
+
 def main():
     import argparse
     parser = argparse.ArgumentParser()

@@ -1,5 +1,5 @@
 """
-belief.py  —  Discrete Bayes Filter for cup-target localisation
+belief.py  —  Discrete Bayes Filter for cup-target localisation, python belief.py --port /dev/ttyACM0
 
 Math (from slide)
     Bel(v_t) = η · P(z_aud | v_t) · P(z_vis | v_t) · Σ_{v_{t-1}} P(v_t | u_t, v_{t-1}) · Bel(v_{t-1})
@@ -474,85 +474,201 @@ class BeliefFilter:
                   f"  ({cx:.1f}, {cy:.1f}) mm{ruled}")
         print()
 
-
-
-# Smoke test  (no robot / camera needed)
+#voxelisation
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("BeliefFilter smoke test — synthetic data")
-    print("=" * 60 + "\n")
+    import time
+    import cv2
+    import numpy
+    from pupil_apriltags import Detector
+    from sweep import sweep_table, ROBOT_IP, GRIPPER_LENGTH
+    from xarm.wrapper import XArmAPI
+    from utils.zed_camera import ZedCamera
+    from checkpoint0 import get_transform_camera_robot
+    from voxel import voxelize_table
+    from grasp_and_rotate import grasp_and_rotate as do_grasp_rotate, get_all_cube_poses
+    from push_cube import push_cube as do_push_cube
 
-    rng = np.random.default_rng(0)
-    TARGET_CUP_ID = 2
+    MIC_PORT = "/dev/ttyACM0"
+    CUBE_TAG_FAMILY = 'tag36h11'
+    CUBE_TAG_SIZE = 0.0206
 
-    cup_centres = np.array([
-        [0.15, -0.20],
-        [0.20,  0.05],
-        [0.25,  0.25],   # ← target hidden here
-        [0.30, -0.10],
-        [0.35,  0.15],
-    ])
+    def detect_all_tags(cv_image, camera_intrinsic, T_cam_robot):
+        """Detect all AprilTags and return list of (tag_id, t_robot_cube, t_cam_cube)."""
+        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGRA2GRAY) if cv_image.shape[2] == 4 else cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+        detector = Detector(families=CUBE_TAG_FAMILY)
+        fx, fy = camera_intrinsic[0, 0], camera_intrinsic[1, 1]
+        cx, cy = camera_intrinsic[0, 2], camera_intrinsic[1, 2]
 
-    # Build fake VoxelGrid
-    pts, cols = [], []
-    for xi in np.linspace(0.05, 0.45, 20):
-        for yi in np.linspace(-0.35, 0.35, 20):
-            pts.append([xi, yi, 0.005])
-            cols.append(list(TABLE_COLOUR))
-    for cx, cy in cup_centres:
-        for zi in np.linspace(0.03, 0.12, 8):
-            for dx in [-0.01, 0.0, 0.01]:
-                for dy in [-0.01, 0.0, 0.01]:
-                    pts.append([cx + dx, cy + dy, zi])
-                    cols.append([0.5, 0.5, 0.9])
+        tags = detector.detect(gray, estimate_tag_pose=True,
+                               camera_params=(fx, fy, cx, cy),
+                               tag_size=CUBE_TAG_SIZE)
 
-    pcd        = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(np.array(pts))
-    pcd.colors = o3d.utility.Vector3dVector(np.array(cols))
-    fake_vg    = o3d.geometry.VoxelGrid.create_from_point_cloud(pcd, voxel_size=0.01)
+        T_cam_robot_inv = numpy.linalg.inv(T_cam_robot)
+        results = []
+        for tag in tags:
+            t_cam_cube = numpy.eye(4)
+            t_cam_cube[:3, :3] = tag.pose_R
+            t_cam_cube[:3, 3] = tag.pose_t.flatten()
+            t_robot_cube = T_cam_robot_inv @ t_cam_cube
+            results.append((tag.tag_id, t_robot_cube, t_cam_cube))
+        return results
 
-    # Fake sweep: strong spike near cup 2
-    n    = 500
-    t    = np.linspace(0, 1, n)
-    xs   = 0.05 + t * 0.40
-    ys   = np.full(n, 0.05)
-    mags = (
-        80.0 * np.exp(-((xs - cup_centres[TARGET_CUP_ID][0]) ** 2) / (2 * 0.02 ** 2))
-        + rng.uniform(0, 5, n)
-    ).clip(0)
+    def find_tag_nearest_cup(tag_results, cup_centre_xy_m):
+        """Find the AprilTag closest to the cup's XY centre (in metres)."""
+        best_dist = float('inf')
+        best = None
+        for tag_id, t_robot_cube, t_cam_cube in tag_results:
+            tag_xy = t_robot_cube[:2, 3]
+            d = numpy.linalg.norm(tag_xy - cup_centre_xy_m)
+            if d < best_dist:
+                best_dist = d
+                best = (tag_id, t_robot_cube, t_cam_cube)
+        return best, best_dist
 
-    # ── Run the full filter loop
-    bf = BeliefFilter(fake_vg, n_cups=5)
+    # ── Step 0: Build voxel grid from ZED
+    print("=" * 50)
+    print("STEP 0: Capture voxel grid from ZED")
+    print("=" * 50)
+    arm = XArmAPI(ROBOT_IP)
+    arm.connect()
+    arm.clean_error()
+    arm.clean_warn()
+    arm.motion_enable(enable=True)
+    arm.set_tcp_offset([0, 0, GRIPPER_LENGTH, 0, 0, 0])
+    arm.set_mode(0)
+    arm.set_state(0)
+    arm.move_gohome(wait=True)
+    
+    zed = ZedCamera()
+    try:
+        cv_image, point_cloud = zed.get_synchronized_frame()
+        T_cam_robot = get_transform_camera_robot(cv_image, zed.camera_intrinsic)
+        if T_cam_robot is None:
+            raise RuntimeError("Could not compute camera-robot transform.")
+        voxel_grid = voxelize_table(point_cloud, T_cam_robot)
+        if voxel_grid is None:
+            raise RuntimeError("Voxel grid creation failed.")
+    finally:
+        zed.close()
 
-    # Step 1: audio sweep observation
+    bf = BeliefFilter(voxel_grid, n_cups=5)
+
+    print("─" * 50)
+    print("STEP 0b: Initial belief (uniform prior)")
+    print("─" * 50)
+    bf.visualise("Step 0: Uniform prior")
+    time.sleep(1.0)
+
+    # ── Step 1: Audio sweep
     print("─" * 50)
     print("STEP 1: Audio sweep")
     print("─" * 50)
-    bf.update_audio(xs, ys, mags)
-    bf.visualise("Step 1: After audio sweep")
 
-    # Steps 2+: greedily check most likely cup until found
-    step = 2
-    while True:
-        best_cup, best_p = bf.best_cup()
-        print("─" * 50)
-        print(f"STEP {step}: Check cup {best_cup.cup_id}  (p={best_p*100:.1f}%)")
-        print("─" * 50)
+    try:
+        x_mm, y_mm, data_x, data_y = sweep_table(arm, port=MIC_PORT)
+        arm.move_gohome(wait=True)
 
-        bf.apply_action(Action.CHECK, cup_id=best_cup.cup_id)
+        xs = np.array([x_mm / 1000.0])
+        ys = np.array([y_mm / 1000.0])
+        mags = np.array([100.0])
 
-        # Ground-truth camera result
-        found = (best_cup.cup_id == TARGET_CUP_ID)
-        bf.update_visual(found=found)
-        bf.visualise(
-            f"Step {step}: Cup {best_cup.cup_id} — "
-            f"{'TARGET FOUND' if found else 'empty, ruled out'}"
-        )
+        print(f"Audio source estimate: ({x_mm:.1f}, {y_mm:.1f}) mm")
+        bf.update_audio(xs, ys, mags, spike_percentile=0)
+        bf.visualise("Step 1: After audio sweep")
 
-        if found:
-            print(f"\n✓ Target confirmed under cup {best_cup.cup_id}.")
-            print("  → Call push_cube() on this cup.")
-            break
+        # ── Steps 2+: Check cups
+        step = 2
+        while True:
+            best_cup, best_p = bf.best_cup()
+            print("─" * 50)
+            print(f"STEP {step}: Check cup {best_cup.cup_id}  (p={best_p*100:.1f}%)")
+            print("─" * 50)
 
-        step += 1
+            # Detect AprilTags to find the cube on this cup
+            zed = ZedCamera()
+            try:
+                cv_image, point_cloud = zed.get_synchronized_frame()
+                T_cam_robot = get_transform_camera_robot(cv_image, zed.camera_intrinsic)
+                if T_cam_robot is None:
+                    print("Lost camera-robot transform.")
+                    break
+                tag_results = detect_all_tags(cv_image, zed.camera_intrinsic, T_cam_robot)
+            finally:
+                zed.close()
+
+            if not tag_results:
+                print("No AprilTags detected.")
+                break
+
+            # Match nearest tag to this cup
+            cup_xy_m = best_cup.centre_xy  # already in metres
+            (tag_id, t_robot_cube, _), dist = find_tag_nearest_cup(tag_results, cup_xy_m)
+            dist_mm = dist * 1000.0
+
+            if dist_mm > 80:
+                print(f"No tag within 80 mm of cup {best_cup.cup_id} (closest: {dist_mm:.1f} mm)")
+                break
+
+            print(f"  Matched tag {tag_id} at {dist_mm:.1f} mm from cup centre")
+
+            # Grasp and rotate 180° using AprilTag pose
+            bf.apply_action(Action.CHECK, cup_id=best_cup.cup_id)
+            do_grasp_rotate(arm, t_robot_cube, rotate_deg=180.0)
+            arm.move_gohome(wait=True)
+            time.sleep(0.5)
+
+            # Camera check: look for the red target
+            zed = ZedCamera()
+            try:
+                cv_image2, _ = zed.get_synchronized_frame()
+            finally:
+                zed.close()
+
+            bgr = cv2.cvtColor(cv_image2, cv2.COLOR_BGRA2BGR) if cv_image2.shape[2] == 4 else cv_image2
+            hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+            m1 = cv2.inRange(hsv, np.array([0, 80, 80]), np.array([10, 255, 255]))
+            m2 = cv2.inRange(hsv, np.array([160, 80, 80]), np.array([180, 255, 255]))
+            red_mask = cv2.bitwise_or(m1, m2)
+            kernel = np.ones((5, 5), np.uint8)
+            red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_OPEN, kernel)
+            red_pixels = cv2.countNonZero(red_mask)
+
+            RED_THRESHOLD = 300
+            found = red_pixels > RED_THRESHOLD
+            print(f"  Red pixels: {red_pixels} → {'FOUND' if found else 'NOT FOUND'}")
+
+            bf.update_visual(found=found)
+            bf.visualise(f"Step {step}: Cup {best_cup.cup_id} — {'FOUND' if found else 'empty'}")
+
+            if found:
+                print(f"\n✓ Target under cup {best_cup.cup_id} → pushing it.")
+
+                # Re-detect with HSV to get target cube pose for pushing
+                zed = ZedCamera()
+                try:
+                    cv_image3, point_cloud3 = zed.get_synchronized_frame()
+                    T_cam_robot3 = get_transform_camera_robot(cv_image3, zed.camera_intrinsic)
+                    target_cubes = get_all_cube_poses(
+                        [cv_image3, point_cloud3], zed.camera_intrinsic, T_cam_robot3
+                    )
+                finally:
+                    zed.close()
+
+                if target_cubes:
+                    cup_xy_mm = best_cup.centre_xy * 1000.0
+                    target_cube = min(
+                        target_cubes,
+                        key=lambda tc: numpy.linalg.norm(tc[0][:2, 3] * 1000 - cup_xy_mm)
+                    )[0]
+                    do_push_cube(arm, target_cube, target_xy_mm=None)
+                else:
+                    print("Could not re-detect target cube for pushing.")
+                break
+
+            step += 1
+
+        arm.move_gohome(wait=True)
+
+    finally:
+        arm.disconnect()

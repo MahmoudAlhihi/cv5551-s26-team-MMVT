@@ -8,7 +8,7 @@ import matplotlib.cm as cm
 ROBOT_IP = '192.168.1.182'
 
 # Table bounds in robot frame (metres) — adjust to your workspace
-X_MIN, X_MAX =  0.05,  0.50
+X_MIN, X_MAX =  0.15,  0.50
 Y_MIN, Y_MAX = -0.40,  0.40
 Z_MIN, Z_MAX = -0.01,  0.50
 
@@ -60,11 +60,11 @@ def voxelize_table(point_cloud, T_cam_robot):
     )
 
     print(f"Voxel grid created: voxel_size={VOXEL_SIZE*1000:.0f} mm")
-    o3d.visualization.draw_geometries(
-        [voxel_grid, axes],
-        window_name="Table Voxel Grid (Robot Frame)",
-        width=1280, height=720
-    )
+    # o3d.visualization.draw_geometries(
+    #     [voxel_grid, axes],
+    #     window_name="Table Voxel Grid (Robot Frame)",
+    #     width=1280, height=720
+    # )
 
     return voxel_grid
 
