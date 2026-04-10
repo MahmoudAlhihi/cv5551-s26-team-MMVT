@@ -65,24 +65,24 @@ def localize_source(data: list[float],
                     start_coord: float,
                     end_coord: float,
                     method: str = "savgol",
+                    peak_weight: float = 0.7,
+                    cluster_weight: float = 0.3,
+                    top_k: int = 5,
                     **kwargs) -> tuple[float, np.ndarray]:
-    """
-    Smooth the signal and return (peak_coordinate, smoothed_array).
-
-    Parameters
-    ----------
-    data         : raw magnitude samples collected during one sweep
-    start_coord  : robot-frame coordinate at sample 0
-    end_coord    : robot-frame coordinate at last sample
-    method       : smoothing method ("savgol", "gaussian", "median")
-
-    Returns
-    -------
-    (coord, smoothed)
-        coord    – robot-frame coordinate of peak intensity
-        smoothed – the full smoothed signal (for plotting)
-    """
     smoothed = smooth(data, method=method, **kwargs)
+    
+    # --- Highest peak (primary) ---
     peak_idx = int(np.argmax(smoothed))
-    coord = sample_to_coord(peak_idx, len(smoothed), start_coord, end_coord)
+    
+    # --- Cluster of top-k peaks (secondary) ---
+    top_indices = np.argsort(smoothed)[-top_k:]
+    weights = smoothed[top_indices]
+    cluster_idx = np.average(top_indices, weights=weights)
+    
+    # --- Blend ---
+    blended_idx = peak_weight * peak_idx + cluster_weight * cluster_idx
+    blended_idx = np.clip(blended_idx, 0, len(smoothed) - 1)
+    
+    coord = sample_to_coord(int(round(blended_idx)), len(smoothed),
+                            start_coord, end_coord)
     return coord, smoothed
