@@ -5,6 +5,8 @@ from read_mic import find_arduino_port, serial_reader, latest_values, data_lock
 import threading
 import time
 import matplotlib.pyplot as plt
+import numpy as np
+from audio_localize import localize_source
 
 def collect_mic_data(duration=2.0, port=None, baud=115200, window=500):
     port = port or find_arduino_port()
@@ -85,6 +87,7 @@ def sweep_table(arm: XArmAPI, port=None) -> None:
     )
     x_duration = (X_MAX - X_MIN) / SWEEP_SPEED
     data_x = collect_mic_data(duration=x_duration + 1.0, port=port)
+    x_coord, smooth_x = localize_source(data_x, start_coord=X_MAX, end_coord=X_MIN)
     time.sleep(1.0)
 
     # Clear the shared deque for the next recording
@@ -99,21 +102,33 @@ def sweep_table(arm: XArmAPI, port=None) -> None:
     )
     y_duration = (Y_MAX - Y_MIN) / SWEEP_SPEED
     data_y = collect_mic_data(duration=y_duration + 1.0, port=port)
+    y_coord, smooth_y = localize_source(data_y, start_coord=Y_MIN, end_coord=Y_MAX)
     time.sleep(1.0)
 
+    print(f"Sound source estimated at: X={x_coord:.1f} mm, Y={y_coord:.1f} mm")
+
+    plt.style.use('dark_background')
     # Plot both sweeps
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
 
-    ax1.plot(data_x, color="#00e5ff", linewidth=1.0)
-    ax1.fill_between(range(len(data_x)), data_x, alpha=0.18, color="#00e5ff")
+    # X sweep
+    ax1.plot(data_x, color="#00e5ff", linewidth=0.5, alpha=0.4, label="Raw")
+    ax1.plot(smooth_x, color="#ffffff", linewidth=2.0, label="Smoothed")
+    peak_x_idx = int(np.argmax(smooth_x))
+    ax1.axvline(peak_x_idx, color="#ff4081", linestyle="--", label=f"Peak → X={x_coord:.1f} mm")
     ax1.set_ylabel("2.5 kHz Magnitude")
-    ax1.set_title(f"X Sweep (X_MAX→X_MIN)  |  {len(data_x)} samples  |  peak: {max(data_x):.1f}" if data_x else "X Sweep — no data")
+    ax1.set_title(f"X Sweep (X_MAX→X_MIN)")
+    ax1.legend()
 
-    ax2.plot(data_y, color="#ff6e40", linewidth=1.0)
-    ax2.fill_between(range(len(data_y)), data_y, alpha=0.18, color="#ff6e40")
+    # Y sweep
+    ax2.plot(data_y, color="#ff6e40", linewidth=0.5, alpha=0.4, label="Raw")
+    ax2.plot(smooth_y, color="#ffffff", linewidth=2.0, label="Smoothed")
+    peak_y_idx = int(np.argmax(smooth_y))
+    ax2.axvline(peak_y_idx, color="#ff4081", linestyle="--", label=f"Peak → Y={y_coord:.1f} mm")
     ax2.set_xlabel("Sample")
     ax2.set_ylabel("2.5 kHz Magnitude")
-    ax2.set_title(f"Y Sweep (Y_MIN→Y_MAX)  |  {len(data_y)} samples  |  peak: {max(data_y):.1f}" if data_y else "Y Sweep — no data")
+    ax2.set_title(f"Y Sweep (Y_MIN→Y_MAX)")
+    ax2.legend()
 
     fig.tight_layout()
     plt.show()

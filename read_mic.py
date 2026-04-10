@@ -10,6 +10,13 @@ Usage:
     python read_mic.py --port COM3      # specify port explicitly
     python read_mic.py --port /dev/ttyUSB0 --baud 115200
     python read_mic.py --window 200     # number of samples shown at once (default: 100)
+
+
+
+
+
+
+    
     neeeeeeeed python read_mic.py --port /dev/ttyACM0
 """
 
