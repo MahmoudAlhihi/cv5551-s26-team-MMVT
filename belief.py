@@ -530,6 +530,7 @@ if __name__ == "__main__":
     print("=" * 50)
     print("STEP 0: Capture voxel grid from ZED")
     print("=" * 50)
+
     arm = XArmAPI(ROBOT_IP)
     arm.connect()
     arm.clean_error()
