@@ -1,5 +1,5 @@
 """
-belief_integrated_simple.py
+integratedBeliefv4.py
 
 Simplified stable version:
 - Keeps region-based voxel belief logic from the integrated script
@@ -35,7 +35,7 @@ P_VIS_FOUND         = 0.90
 P_VIS_NOT_FOUND     = 0.10
 
 RED_SETTLE_SECONDS  = 0.6
-RED_PIXEL_THRESHOLD = 300
+RED_PIXEL_THRESHOLD = 5000
 RED_KERNEL_SIZE     = 5
 
 TAG_MATCH_MAX_DIST  = 0.10
@@ -70,6 +70,18 @@ def _belief_to_rgb(p: float) -> Tuple[float, float, float]:
             return tuple(rgb.tolist())
     return tuple(_HEATMAP_STOPS[-1][1].tolist())
 
+def _regions_from_tags(self, tag_xys_m: np.ndarray, radius: float = 0.03):
+    """tag_xys_m: shape (N, 2), each row is (x, y) in meters."""
+    regions = []
+    for k, tag_xy in enumerate(tag_xys_m):
+        d2 = ((self.positions[:, :2] - tag_xy) ** 2).sum(axis=1)
+        member_idx = np.where(d2 <= radius ** 2)[0]
+        if len(member_idx) == 0:
+            # No voxels near this tag — tag is isolated (maybe above the table plane).
+            # Still register a region with just the closest voxel so CHECK can target it.
+            member_idx = np.array([int(np.argmin(d2))])
+        regions.append(member_idx)
+    return regions
 
 # ── Region ───────────────────────────────────────────────────────────────────
 
@@ -125,7 +137,10 @@ def _flood_fill_xy(
 # ── Belief filter ────────────────────────────────────────────────────────────
 
 class BeliefFilter:
-    def __init__(self, voxel_grid: o3d.geometry.VoxelGrid, z_threshold: float = VOXEL_Z_THRESHOLD):
+    def __init__(self, voxel_grid: o3d.geometry.VoxelGrid,
+                 z_threshold: float = VOXEL_Z_THRESHOLD,
+                 tag_xys_m: Optional[np.ndarray] = None,
+                 tag_radius: float = 0.03):
         self.voxel_grid = voxel_grid
 
         voxels     = voxel_grid.get_voxels()
@@ -153,11 +168,23 @@ class BeliefFilter:
         self.belief    = np.ones(N) / N
         self._has_data = False
 
-        raw_regions = _flood_fill_xy(
-            self.positions,
-            cluster_radius=REGION_CLUSTER_RADIUS,
-            min_voxels=REGION_MIN_VOXELS,
-        )
+        # Region assignment: tag-seeded if tags provided, else flood-fill fallback.
+        if tag_xys_m is not None and len(tag_xys_m) > 0:
+            raw_regions = self._regions_from_tags(
+                np.asarray(tag_xys_m, dtype=float),
+                radius=tag_radius,
+            )
+            print(f"[BeliefFilter] Using {len(raw_regions)} tag-seeded region(s) "
+                  f"(radius={tag_radius*1000:.0f} mm).")
+        else:
+            raw_regions = _flood_fill_xy(
+                self.positions,
+                cluster_radius=REGION_CLUSTER_RADIUS,
+                min_voxels=REGION_MIN_VOXELS,
+            )
+            print(f"[BeliefFilter] Using {len(raw_regions)} flood-fill region(s) "
+                  f"(fallback).")
+
         self.regions: List[Region] = []
         for k, member_idx in enumerate(raw_regions):
             pts = self.positions[member_idx]
@@ -177,11 +204,29 @@ class BeliefFilter:
         self._last_check_xy: Optional[np.ndarray] = None
         self._checked_xys: List[np.ndarray] = []
 
-        print(f"[BeliefFilter] {N} active voxels above z={z_threshold:.3f} m, uniform prior {1/N*100:.4f}% each.")
+        print(f"[BeliefFilter] {N} active voxels above z={z_threshold:.3f} m, "
+              f"uniform prior {1/N*100:.4f}% each.")
         print(f"[BeliefFilter] Extracted {len(self.regions)} region(s):")
         for r in self.regions:
             print(f"  {r}")
         print()
+
+    def _regions_from_tags(self, tag_xys_m: np.ndarray, radius: float = 0.03) -> List[np.ndarray]:
+        """
+        Build regions by assigning voxels within `radius` of each AprilTag.
+        tag_xys_m: shape (N, 2) — each row is a tag's (x, y) in meters.
+        Returns a list of voxel-index arrays, one per tag, in the same order.
+        """
+        regions = []
+        for tag_xy in tag_xys_m:
+            d2 = ((self.positions[:, :2] - tag_xy) ** 2).sum(axis=1)
+            member_idx = np.where(d2 <= radius ** 2)[0]
+            if len(member_idx) == 0:
+                # No voxels near this tag — fall back to the single closest voxel
+                # so CHECK can still target it.
+                member_idx = np.array([int(np.argmin(d2))])
+            regions.append(member_idx)
+        return regions
 
     def apply_action(self, action: Action, xy: Optional[np.ndarray] = None) -> None:
         if action == Action.NONE or xy is None:
@@ -479,7 +524,21 @@ if __name__ == "__main__":
         if voxel_grid is None:
             raise RuntimeError("Voxel grid creation failed.")
 
-        bf = BeliefFilter(voxel_grid)
+        # Detect all tags NOW to seed the belief filter's regions.
+        # One region per cube, centered on the tag's XY.
+        initial_tag_results = detect_all_tags(cv_image, K, T_cam_robot)
+        if not initial_tag_results:
+            print("⚠  No AprilTags detected at setup. Falling back to flood-fill regions.")
+            tag_xys_m = None
+        else:
+            tag_xys_m = np.array([T_robot_cube[:2, 3]
+                                  for (_, T_robot_cube, _) in initial_tag_results])
+            print(f"Detected {len(tag_xys_m)} tag(s) at setup — using them as region seeds.")
+            for (tag_id, T_robot_cube, _) in initial_tag_results:
+                xy = T_robot_cube[:2, 3] * 1000
+                print(f"  tag {tag_id}: ({xy[0]:.1f}, {xy[1]:.1f}) mm")
+
+        bf = BeliefFilter(voxel_grid, tag_xys_m=tag_xys_m)
 
         print("─" * 60)
         print("STEP 0b — Initial belief")
@@ -490,9 +549,11 @@ if __name__ == "__main__":
         print("STEP 1 — Audio sweep")
         print("─" * 60)
 
-        x_mm, y_mm, _, _ = sweep_table(arm, port=MIC_PORT)
+        x_mm, y_mm, data_x, data_y = sweep_table(arm, port=MIC_PORT)
         safe_gohome(arm)
 
+        # Single-peak audio evidence: one (x, y) point at the estimated source,
+        # with a nominal magnitude, deposited as a Gaussian bump in the belief filter.
         xs   = np.array([x_mm / 1000.0])
         ys   = np.array([y_mm / 1000.0])
         mags = np.array([100.0])

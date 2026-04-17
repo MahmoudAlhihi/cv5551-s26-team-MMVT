@@ -1,5 +1,5 @@
 """
-Reads 2.5kHz Goertzel magnitude values from an Arduino Uno over USB serial
+Reads 2 kHz Goertzel magnitude values from an Arduino Uno over USB serial
 and displays a live scrolling graph of the signal intensity.
 
 Requirements:
@@ -86,7 +86,7 @@ def serial_reader(port, baud, window):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Live graph of 2.5kHz intensity from Arduino")
+    parser = argparse.ArgumentParser(description="Live graph of 2 kHz intensity from Arduino")
     parser.add_argument("--port",   default=None,    help="Serial port (e.g. COM3)")
     parser.add_argument("--baud",   type=int, default=115200, help="Baud rate (default: 115200)")
     parser.add_argument("--window", type=int, default=100,    help="Samples visible on graph (default: 100)")
@@ -114,7 +114,7 @@ def main():
     ax.set_xlim(0, args.window)
     ax.set_ylim(0, 1)          # auto-scales once data arrives
     ax.set_xlabel("Sample", color="#aaaaaa")
-    ax.set_ylabel("2.5 kHz Magnitude", color="#aaaaaa")
+    ax.set_ylabel("2 kHz Magnitude", color="#aaaaaa")
     ax.tick_params(colors="#aaaaaa")
     for spine in ax.spines.values():
         spine.set_edgecolor("#333333")
@@ -146,7 +146,7 @@ def main():
 
         lbl = info if info else f"port: {port}"
         title.set_text(
-            f"2.5 kHz Signal Intensity  |  sample #{count}  |  {lbl}\n"
+            f"2 kHz Signal Intensity  |  sample #{count}  |  {lbl}\n"
             f"current: {values[-1]:.1f}   peak: {peak:.1f}"
         )
         return line_plot,

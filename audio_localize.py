@@ -33,7 +33,7 @@ def smooth(data: list[float], method: str = "savgol", **kwargs) -> np.ndarray:
         return arr
 
     if method == "savgol":
-        win = kwargs.get("window", min(31, len(arr) // 2 * 2 + 1))  # must be odd
+        win = kwargs.get("window", min(9, len(arr) // 2 * 2 + 1))  # must be odd
         if win % 2 == 0:
             win += 1
         poly = kwargs.get("poly", 3)
