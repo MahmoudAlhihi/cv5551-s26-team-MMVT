@@ -32,9 +32,9 @@ from push_cube import push_cube as do_push_cube
 # ── Configuration ────────────────────────────────────────────────────────────
 
 CUBE_TAG_FAMILY = "tag36h11"
-CUBE_TAG_SIZE   = 0.0206  # meters
+CUBE_TAG_SIZE   = 0.0208  # meters
 RED_SETTLE_SECONDS = 0.6
-RED_PIXEL_THRESHOLD = 5000
+RED_PIXEL_THRESHOLD = 2000
 RED_KERNEL_SIZE = 5
 
 # Initialize AprilTag detector

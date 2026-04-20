@@ -22,7 +22,7 @@ import numpy as np
 import open3d as o3d
 
 
-# ── Tuneable parameters ──────────────────────────────────────────────────────
+#Tuneable parameters 
 
 VOXEL_Z_THRESHOLD   = 0.03
 SPIKE_PERCENTILE    = 85
@@ -35,7 +35,7 @@ P_VIS_FOUND         = 0.90
 P_VIS_NOT_FOUND     = 0.10
 
 RED_SETTLE_SECONDS  = 0.6
-RED_PIXEL_THRESHOLD = 5000
+RED_PIXEL_THRESHOLD = 3000
 RED_KERNEL_SIZE     = 5
 
 TAG_MATCH_MAX_DIST  = 0.10
@@ -48,7 +48,7 @@ class Action(Enum):
     PUSH  = auto()
 
 
-# ── Colour helpers ───────────────────────────────────────────────────────────
+# Colour helpers
 
 _HEATMAP_STOPS = [
     (0.00, np.array([0.00, 0.00, 0.50])),
@@ -418,7 +418,7 @@ if __name__ == "__main__":
     from grasp_and_rotate import grasp_and_rotate as do_grasp_rotate, get_all_cube_poses
     from push_cube import push_cube as do_push_cube
 
-    MIC_PORT        = "/dev/ttyACM0"
+    MIC_PORT        = "/dev/ttyACM1"
     CUBE_TAG_FAMILY = "tag36h11"
     CUBE_TAG_SIZE   = 0.0206
 
