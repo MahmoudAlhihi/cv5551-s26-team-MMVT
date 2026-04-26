@@ -418,7 +418,7 @@ if __name__ == "__main__":
     from grasp_and_rotate import grasp_and_rotate as do_grasp_rotate, get_all_cube_poses
     from push_cube import push_cube as do_push_cube
 
-    MIC_PORT        = "/dev/ttyACM0"
+    MIC_PORT        = "/dev/ttyACM2"
     CUBE_TAG_FAMILY = "tag36h11"
     CUBE_TAG_SIZE   = 0.0206
 

@@ -70,15 +70,19 @@ def serial_reader(port, baud, window):
             if line.startswith("#"):
                 arduino_info = line[1:].strip()
                 continue
+            parts = line.split(",")
+            if len(parts) < 2:
+                continue
             try:
-                magnitude = float(line)
-                with data_lock:
-                    latest_values.append(magnitude)
-                    if len(latest_values) > window:
-                        latest_values.popleft()
-                    sample_count += 1
+                magnitude = float(parts[0])
+                snr = float(parts[1])
             except ValueError:
-                pass
+                continue
+            with data_lock:
+                latest_values.append((magnitude, snr))
+                if len(latest_values) > window:
+                    latest_values.popleft()
+                sample_count += 1
     except Exception:
         pass
     finally:
@@ -114,7 +118,7 @@ def main():
     ax.set_xlim(0, args.window)
     ax.set_ylim(0, 1)          # auto-scales once data arrives
     ax.set_xlabel("Sample", color="#aaaaaa")
-    ax.set_ylabel("2 kHz Magnitude", color="#aaaaaa")
+    ax.set_ylabel("20 kHz SNR-gated Magnitude", color="#aaaaaa")
     ax.tick_params(colors="#aaaaaa")
     for spine in ax.spines.values():
         spine.set_edgecolor("#333333")
@@ -132,22 +136,32 @@ def main():
         if not values:
             return line_plot,
 
-        xs = list(range(len(values)))
-        line_plot.set_data(xs, values)
+        # Unpack tuples if present
+        if isinstance(values[0], tuple):
+            mags = [m for (m, s) in values]
+            snrs = [s for (m, s) in values]
+            # Plot SNR-gated magnitude — same signal the localizer sees
+            gated = [m * max(s - 1.0, 0.0) for m, s in values]
+            plot_values = gated
+        else:
+            plot_values = values
+            snrs = None
 
-        # Re-draw fill under the line
+        xs = list(range(len(plot_values)))
+        line_plot.set_data(xs, plot_values)
+
         fill.remove()
-        fill = ax.fill_between(xs, values, alpha=0.18, color="#00e5ff")
+        fill = ax.fill_between(xs, plot_values, alpha=0.18, color="#00e5ff")
 
-        # Auto-scale Y with a bit of headroom
-        peak = max(values)
+        peak = max(plot_values)
         ax.set_ylim(0, max(peak * 1.2, 10))
         ax.set_xlim(0, args.window)
 
         lbl = info if info else f"port: {port}"
+        extra = f"  |  SNR_max={max(snrs):.1f}" if snrs else ""
         title.set_text(
-            f"2 kHz Signal Intensity  |  sample #{count}  |  {lbl}\n"
-            f"current: {values[-1]:.1f}   peak: {peak:.1f}"
+            f"20 kHz SNR-gated Signal  |  sample #{count}  |  {lbl}{extra}\n"
+            f"current: {plot_values[-1]:.1f}   peak: {peak:.1f}"
         )
         return line_plot,
 

@@ -1,13 +1,13 @@
-// MAX9814 Electret Mic Amp - 20kHz Frequency Detector
+// MAX9814 Electret Mic Amp - 20 kHz Frequency Detector
 // Uses three parallel Goertzel filters: 20 kHz target + 16/24 kHz references for SNR.
 // Wiring: MAX9814 OUT -> A0, VDD -> 3.3V (or 5V), GND -> GND
 
-#define MIC_PIN      A0
-#define NUM_SAMPLES  128
-#define SAMPLE_RATE  50000.0   // Hz — target rate (verify at startup)
-#define TARGET_FREQ  20000.0   // Hz
-#define REF_LOW_FREQ 16000.0   // Hz — noise reference
-#define REF_HIGH_FREQ 24000.0  // Hz — noise reference
+#define MIC_PIN       A0
+#define NUM_SAMPLES   128
+#define SAMPLE_RATE   50000.0   // Hz — target rate (verify at startup)
+#define TARGET_FREQ   20000.0   // Hz
+#define REF_LOW_FREQ  16000.0   // Hz — noise reference
+#define REF_HIGH_FREQ 24000.0   // Hz — noise reference
 
 // Goertzel coefficients — computed once at startup
 float coeff_target, coeff_low, coeff_high;
@@ -46,13 +46,14 @@ void setup() {
   Serial.print("# Free-running fs=");
   Serial.print(actual_fs, 1);
   Serial.println(" Hz");
+
   Serial.println("# Output format: magnitude,snr,fs_actual");
 }
 
 void loop() {
-  float q0a=0, q1a=0, q2a=0;  // 20 kHz target
-  float q0b=0, q1b=0, q2b=0;  // 16 kHz reference
-  float q0c=0, q1c=0, q2c=0;  // 24 kHz reference
+  float q0a = 0, q1a = 0, q2a = 0;  // 20 kHz target
+  float q0b = 0, q1b = 0, q2b = 0;  // 16 kHz reference
+  float q0c = 0, q1c = 0, q2c = 0;  // 24 kHz reference
 
   unsigned long t_start = micros();
   for (int i = 0; i < NUM_SAMPLES; i++) {
@@ -65,9 +66,9 @@ void loop() {
   unsigned long elapsed = micros() - t_start;
   float fs_actual = 1e6f * NUM_SAMPLES / elapsed;
 
-  float mag_target = sqrt(q1a*q1a + q2a*q2a - q1a*q2a*coeff_target);
-  float mag_low    = sqrt(q1b*q1b + q2b*q2b - q1b*q2b*coeff_low);
-  float mag_high   = sqrt(q1c*q1c + q2c*q2c - q1c*q2c*coeff_high);
+  float mag_target = sqrt(q1a * q1a + q2a * q2a - q1a * q2a * coeff_target);
+  float mag_low    = sqrt(q1b * q1b + q2b * q2b - q1b * q2b * coeff_low);
+  float mag_high   = sqrt(q1c * q1c + q2c * q2c - q1c * q2c * coeff_high);
 
   float snr = mag_target / (0.5f * (mag_low + mag_high) + 1.0f);
 

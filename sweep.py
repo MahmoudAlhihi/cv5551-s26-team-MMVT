@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from audio_localize import localize_source
 
-def collect_mic_data(duration=2.0, port=None, baud=115200, window=500):
+def collect_mic_data(duration=2.0, port=None, baud=115200, window=2000):
     port = port or find_arduino_port()
     t = threading.Thread(target=serial_reader, args=(port, baud, window), daemon=True)
     t.start()
@@ -116,8 +116,8 @@ def sweep_table(arm: XArmAPI, port=None) -> None:
     ax1.plot(smooth_x, color="#ffffff", linewidth=2.0, label="Smoothed")
     peak_x_idx = int(np.argmax(smooth_x))
     ax1.axvline(peak_x_idx, color="#ff4081", linestyle="--", label=f"Peak → X={x_coord:.1f} mm")
-    ax1.set_ylabel("2.5 kHz Magnitude")
-    ax1.set_title(f"X Sweep (X_MAX→X_MIN)")
+    ax1.set_ylabel("Sustained-SNR-gated magnitude")
+    ax1.set_title("X Sweep (X_MAX→X_MIN) — 20 kHz")
     ax1.legend()
 
     # Y sweep
@@ -126,8 +126,8 @@ def sweep_table(arm: XArmAPI, port=None) -> None:
     peak_y_idx = int(np.argmax(smooth_y))
     ax2.axvline(peak_y_idx, color="#ff4081", linestyle="--", label=f"Peak → Y={y_coord:.1f} mm")
     ax2.set_xlabel("Sample")
-    ax2.set_ylabel("2.5 kHz Magnitude")
-    ax2.set_title(f"Y Sweep (Y_MIN→Y_MAX)")
+    ax2.set_ylabel("Sustained-SNR-gated magnitude")
+    ax2.set_title("Y Sweep (Y_MIN→Y_MAX) — 20 kHz")
     ax2.legend()
 
     fig.tight_layout()
