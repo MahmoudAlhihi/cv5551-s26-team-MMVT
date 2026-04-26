@@ -652,6 +652,7 @@ if __name__ == "__main__":
             hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
             m1 = cv2.inRange(hsv, np.array([0, 80, 80]), np.array([10, 255, 255]))
             m2 = cv2.inRange(hsv, np.array([160, 80, 80]), np.array([180, 255, 255]))
+            m = cv2.inRange(hsv, np.array([24, 80, 80]), np.array([34, 255, 255]))
             red_mask = cv2.bitwise_or(m1, m2)
             kernel = np.ones((5, 5), np.uint8)
             red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_OPEN, kernel)

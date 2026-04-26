@@ -35,8 +35,8 @@ P_VIS_FOUND         = 0.90
 P_VIS_NOT_FOUND     = 0.10
 
 RED_SETTLE_SECONDS  = 0.6
-RED_PIXEL_THRESHOLD = 3000
-RED_KERNEL_SIZE     = 5
+YELLOW_PIXEL_THRESHOLD = 3000
+YELLOW_KERNEL_SIZE     = 5
 
 TAG_MATCH_MAX_DIST  = 0.10
 CHECKED_TAG_RADIUS  = 0.04
@@ -418,7 +418,7 @@ if __name__ == "__main__":
     from grasp_and_rotate import grasp_and_rotate as do_grasp_rotate, get_all_cube_poses
     from push_cube import push_cube as do_push_cube
 
-    MIC_PORT        = "/dev/ttyACM1"
+    MIC_PORT        = "/dev/ttyACM0"
     CUBE_TAG_FAMILY = "tag36h11"
     CUBE_TAG_SIZE   = 0.0206
 
@@ -475,23 +475,25 @@ if __name__ == "__main__":
             return None, best_dist
         return best, best_dist
 
-    def detect_red_cube_fullframe(cv_image, red_threshold=RED_PIXEL_THRESHOLD):
+    def detect_red_cube_fullframe(cv_image, yellow_threshold=YELLOW_PIXEL_THRESHOLD):
         if cv_image.shape[2] == 4:
             bgr = cv2.cvtColor(cv_image, cv2.COLOR_BGRA2BGR)
         else:
             bgr = cv_image
 
         hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-        m1 = cv2.inRange(hsv, np.array([0, 80, 80]),   np.array([10, 255, 255]))
-        m2 = cv2.inRange(hsv, np.array([160, 80, 80]), np.array([180, 255, 255]))
-        red_mask = cv2.bitwise_or(m1, m2)
+        #m1 = cv2.inRange(hsv, np.array([0, 80, 80]),   np.array([10, 255, 255]))
+        #m2 = cv2.inRange(hsv, np.array([160, 80, 80]), np.array([180, 255, 255]))
+        yellow_mask = cv2.inRange(hsv, np.array([24, 80, 80]), np.array([34, 255, 255]))
+        #yellow_mask = cv2.bitwise_or(m)
+        #red_mask = cv2.bitwise_or(m1, m2)
 
-        kernel = np.ones((RED_KERNEL_SIZE, RED_KERNEL_SIZE), np.uint8)
-        red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_OPEN, kernel)
+        kernel = np.ones((YELLOW_KERNEL_SIZE, YELLOW_KERNEL_SIZE), np.uint8)
+        yellow_mask = cv2.morphologyEx(yellow_mask, cv2.MORPH_OPEN, kernel)
 
-        red_pixels = int(cv2.countNonZero(red_mask))
-        found = red_pixels > red_threshold
-        return found, red_pixels
+        yellow_pixels = int(cv2.countNonZero(yellow_mask))
+        found = yellow_pixels > yellow_threshold
+        return found, yellow_pixels
 
     def safe_gohome(arm):
         code, pos = arm.get_position()
@@ -619,9 +621,9 @@ if __name__ == "__main__":
             time.sleep(RED_SETTLE_SECONDS)
 
             observe_cv, _, _ = capture_frame()
-            found, red_pixels = detect_red_cube_fullframe(observe_cv)
+            found, yellow_pixels = detect_red_cube_fullframe(observe_cv)
 
-            print(f"  [observe] full-frame red pixels={red_pixels}  threshold={RED_PIXEL_THRESHOLD}  → {'FOUND' if found else 'NOT FOUND'}")
+            print(f"  [observe] full-frame red pixels={yellow_pixels}  threshold={YELLOW_PIXEL_THRESHOLD}  → {'FOUND' if found else 'NOT FOUND'}")
 
             bf.update_visual(found=found)
             visualise_belief_simple(bf, f"Step {step}: {'FOUND' if found else 'empty'} @ tag {tag_id}")
