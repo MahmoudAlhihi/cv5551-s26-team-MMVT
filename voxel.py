@@ -10,7 +10,7 @@ ROBOT_IP = '192.168.1.182'
 # Table bounds in robot frame (metres) — adjust to your workspace
 X_MIN, X_MAX =  0.15,  0.50
 Y_MIN, Y_MAX = -0.40,  0.40
-Z_MIN, Z_MAX = -0.01,  0.50
+Z_MIN, Z_MAX = -0.01,  0.15
 
 VOXEL_SIZE = 0.01  # 10 mm instead of 5
 

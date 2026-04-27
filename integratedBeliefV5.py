@@ -599,11 +599,17 @@ if __name__ == "__main__":
             results.append((tag.tag_id, T_robot_cube, T_cam_cube))
         return results
 
-    def find_best_tag(tag_results, target_xy_m, excluded_xys, max_dist):
+    def find_best_tag(tag_results, target_xy_m, excluded_xys, max_dist, z_max=0.15):
         best_dist = float("inf")
         best = None
         for tag_id, T_robot_cube, T_cam_cube in tag_results:
             tag_xy = T_robot_cube[:2, 3]
+            tag_z  = T_robot_cube[2, 3]          # ← add this
+
+            if tag_z > z_max:                     # ← skip tags above 150 mm
+                print(f"  [tag {tag_id}] skipped — z={tag_z*1000:.1f} mm > {z_max*1000:.0f} mm limit")
+                continue
+
             if any(numpy.linalg.norm(tag_xy - cxy) < CHECKED_TAG_RADIUS for cxy in excluded_xys):
                 continue
             d = numpy.linalg.norm(tag_xy - target_xy_m)
@@ -767,6 +773,10 @@ if __name__ == "__main__":
         # Detect all tags NOW to seed the belief filter's regions.
         # One region per cube, centered on the tag's XY.
         initial_tag_results = detect_all_tags(cv_image, K, T_cam_robot)
+        initial_tag_results = [                          # ← add this filter
+            (tid, T_rc, T_cc) for tid, T_rc, T_cc in initial_tag_results
+            if T_rc[2, 3] <= 0.15
+        ]
         if not initial_tag_results:
             print("⚠  No AprilTags detected at setup. Falling back to flood-fill regions.")
             tag_xys_m = None
