@@ -34,7 +34,7 @@ from push_cube import push_cube as do_push_cube
 CUBE_TAG_FAMILY = "tag36h11"
 CUBE_TAG_SIZE   = 0.0208  # meters
 RED_SETTLE_SECONDS = 0.6
-RED_PIXEL_THRESHOLD = 2000
+RED_PIXEL_THRESHOLD = 1500
 RED_KERNEL_SIZE = 5
 
 # Initialize AprilTag detector
@@ -171,8 +171,8 @@ def detect_red_cube_fullframe(cv_image, red_threshold=RED_PIXEL_THRESHOLD):
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
     
     # Red color ranges (wraps around at 0/180)
-    m1 = cv2.inRange(hsv, np.array([0, 80, 80]), np.array([10, 255, 255]))
-    m2 = cv2.inRange(hsv, np.array([160, 80, 80]), np.array([180, 255, 255]))
+    m1 = cv2.inRange(hsv, np.array([0,   120, 50]),  np.array([10,  255, 255]))
+    m2 = cv2.inRange(hsv, np.array([160, 120, 50]),  np.array([180, 255, 255]))
     red_mask = cv2.bitwise_or(m1, m2)
 
     # Morphological opening to reduce noise
@@ -180,6 +180,7 @@ def detect_red_cube_fullframe(cv_image, red_threshold=RED_PIXEL_THRESHOLD):
     red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_OPEN, kernel)
 
     red_pixels = int(cv2.countNonZero(red_mask))
+    print(red_pixels)
     found = red_pixels > red_threshold
     return found, red_pixels
 
@@ -199,6 +200,10 @@ def main():
     print("SIMPLE LEFT-TO-RIGHT SWEEP")
     print("=" * 60)
     print()
+
+    # ─── Wall-clock timer: start ─────────────────────────────────────────────
+    _t_start = time.perf_counter()
+    # ─────────────────────────────────────────────────────────────────────────
 
     # Initialize robot
     print("Setting up robot...")
@@ -374,7 +379,14 @@ def main():
     finally:
         print("\nDisconnecting robot...")
         arm.disconnect()
-        print("Done.")
+        # ─── Wall-clock timer: end ───────────────────────────────────────────
+        _elapsed = time.perf_counter() - _t_start
+        _mins, _secs = divmod(_elapsed, 60)
+        print()
+        print("=" * 60)
+        print(f"Total runtime: {_elapsed:.2f} s  ({int(_mins)} min {_secs:.2f} s)")
+        print("=" * 60)
+        # ─────────────────────────────────────────────────────────────────────
 
 
 if __name__ == "__main__":

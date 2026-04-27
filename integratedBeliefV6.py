@@ -561,6 +561,10 @@ if __name__ == "__main__":
     SAM3_MIN_AREA         = 200       # px — reject tiny spurious masks
     HSV_GRAY_THRESHOLD    = 500       # px of metallic-gray for HSV "found"
 
+    # ─── Wall-clock timer: start ─────────────────────────────────────────────
+    _t_start = time.perf_counter()
+    # ─────────────────────────────────────────────────────────────────────────
+
     cube_detector = Detector(families=CUBE_TAG_FAMILY)
 
     def capture_frame():
@@ -915,3 +919,12 @@ if __name__ == "__main__":
 
     finally:
         arm.disconnect()
+
+        # ─── Wall-clock timer: end ───────────────────────────────────────────
+        _elapsed = time.perf_counter() - _t_start
+        _mins, _secs = divmod(_elapsed, 60)
+        print()
+        print("=" * 60)
+        print(f"Total runtime: {_elapsed:.2f} s  ({int(_mins)} min {_secs:.2f} s)")
+        print("=" * 60)
+        # ─────────────────────────────────────────────────────────────────────
