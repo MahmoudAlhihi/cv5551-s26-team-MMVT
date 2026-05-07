@@ -13,13 +13,16 @@
 ## Roles and Responsibilities
 
 ### Mahmoud Alhihi
-- TBD
+- Vision
 
 ### Viktor Radev
-- TBD
+- Belief
 
 ### Matthew Giambrone
-- TBD
+- Audio
 
 ### Tarun
-- TBD
+- Manipulation
+
+##
+Our final project runs with the code found in the file named "integratedbeliefv7.py" in the Final-Project-V1 branch.
