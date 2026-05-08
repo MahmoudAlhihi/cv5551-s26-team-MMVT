@@ -167,3 +167,8 @@ The main hypothesis is that adding audio cues allows the robot to focus on high-
 This cleaned version of the repository contains the main files needed for the final EchoFind project pipeline.
 
 
+---
+
+## Troubleshooting Note
+
+If there are any issues with the cleaned `main` branch version, please use `integratedBeliefV7.py` from the `Final-Project-V1` branch as the reference final version.
